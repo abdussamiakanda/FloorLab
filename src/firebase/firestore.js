@@ -10,6 +10,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore'
 import { db } from './config'
 
@@ -34,22 +35,41 @@ export const ensureUserProfile = async (user) => {
   )
 }
 
-export const listFloorPlans = async () => {
-  const floorplansQuery = query(floorplansColRef(), orderBy('updatedAt', 'desc'))
-  const snapshot = await getDocs(floorplansQuery)
+export const listFloorPlans = async (uid, userEmail) => {
+  const ownedQuery = query(
+    floorplansColRef(),
+    where('createdBy', '==', uid),
+    orderBy('updatedAt', 'desc')
+  )
+  const sharedQuery = query(
+    floorplansColRef(),
+    where('collaboratorEmails', 'array-contains', userEmail),
+    orderBy('updatedAt', 'desc')
+  )
 
-  return snapshot.docs.map((planDoc) => ({
-    id: planDoc.id,
-    ...planDoc.data(),
-  }))
+  const [ownedSnap, sharedSnap] = await Promise.all([
+    getDocs(ownedQuery),
+    getDocs(sharedQuery),
+  ])
+
+  const byId = new Map()
+  ownedSnap.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() }))
+  sharedSnap.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() }))
+
+  return Array.from(byId.values()).sort(
+    (a, b) => (b.updatedAt?.toMillis?.() ?? 0) - (a.updatedAt?.toMillis?.() ?? 0)
+  )
 }
 
-export const createFloorPlan = async (uid, name = 'Untitled Plan', userDisplayName = '') => {
+export const createFloorPlan = async (uid, name = 'Untitled Plan', userDisplayName = '', ownerEmail = '') => {
   const created = await addDoc(floorplansColRef(), {
     name,
     objects: [],
     createdBy: uid,
     createdByName: userDisplayName,
+    ownerEmail: ownerEmail || null,
+    collaborators: {},
+    collaboratorEmails: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
@@ -80,4 +100,50 @@ export const updateFloorPlan = async (planId, payload) => {
 
 export const removeFloorPlan = async (planId) => {
   await deleteDoc(floorplanDocRef(planId))
+}
+
+export const shareFloorPlan = async (planId, email, role) => {
+  const normalizedEmail = (email || '').trim().toLowerCase()
+  if (!normalizedEmail) throw new Error('Email is required.')
+
+  const planRef = floorplanDocRef(planId)
+  const snap = await getDoc(planRef)
+  if (!snap.exists()) throw new Error('Plan not found.')
+
+  const data = snap.data()
+  const collaborators = { ...(data.collaborators || {}) }
+  const collaboratorEmails = [...(data.collaboratorEmails || [])]
+
+  if (collaborators[normalizedEmail]) {
+    collaborators[normalizedEmail] = role
+  } else {
+    collaborators[normalizedEmail] = role
+    if (!collaboratorEmails.includes(normalizedEmail)) {
+      collaboratorEmails.push(normalizedEmail)
+    }
+  }
+
+  await updateDoc(planRef, {
+    collaborators,
+    collaboratorEmails,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export const removeCollaborator = async (planId, email) => {
+  const normalizedEmail = (email || '').trim().toLowerCase()
+  const planRef = floorplanDocRef(planId)
+  const snap = await getDoc(planRef)
+  if (!snap.exists()) throw new Error('Plan not found.')
+
+  const data = snap.data()
+  const collaborators = { ...(data.collaborators || {}) }
+  const collaboratorEmails = (data.collaboratorEmails || []).filter((e) => e !== normalizedEmail)
+  delete collaborators[normalizedEmail]
+
+  await updateDoc(planRef, {
+    collaborators,
+    collaboratorEmails,
+    updatedAt: serverTimestamp(),
+  })
 }

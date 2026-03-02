@@ -2,14 +2,27 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // User profiles - users can read/write their own profile
+    // User profiles: signed-in users can read/write their own profile
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Shared floor plans - any authenticated user can read and write all plans
+
+    // Floor plans: any signed-in user can create; only owner and collaborators can read/edit; only owner can delete
     match /floorplans/{planId} {
-      allow read, write: if request.auth != null;
+      allow create: if request.auth != null;
+      allow read: if request.auth != null
+        && (resource.data.get('createdBy', '') == request.auth.uid
+            || resource.data.get('ownerEmail', '') == request.auth.token.email
+            || request.auth.token.email in resource.data.get('collaborators', {})
+            || request.auth.token.email in resource.data.get('collaboratorEmails', []));
+      allow update: if request.auth != null
+        && (resource.data.get('ownerEmail', '') == request.auth.token.email
+            || resource.data.get('createdBy', '') == request.auth.uid
+            || (request.auth.token.email in resource.data.get('collaborators', {})
+                && resource.data.get('collaborators', {})[request.auth.token.email] == 'editor'));
+      allow delete: if request.auth != null
+        && (resource.data.get('ownerEmail', '') == request.auth.token.email
+            || resource.data.get('createdBy', '') == request.auth.uid);
     }
   }
 }

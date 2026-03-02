@@ -3,14 +3,28 @@ import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { fire as SwalFire } from '../utils/swalWithLucide'
 import { useFirestore } from '../hooks/useFirestore'
+import { useAuth } from '../context/AuthContext'
 import FloorPlanList from './FloorPlanList'
+import ShareModal from './ShareModal'
 import { Plus } from 'lucide-react'
 
 function Dashboard() {
   const navigate = useNavigate()
-  const { fetchFloorPlans, createPlan, savePlan, deletePlan, loading, error } = useFirestore()
+  const { user } = useAuth()
+  const {
+    fetchFloorPlans,
+    createPlan,
+    savePlan,
+    deletePlan,
+    sharePlan,
+    removeCollaborator,
+    fetchPlanById,
+    loading,
+    error,
+  } = useFirestore()
   const [plans, setPlans] = useState([])
   const [plansLoaded, setPlansLoaded] = useState(false)
+  const [sharePlanData, setSharePlanData] = useState(null)
 
   const loadPlans = useCallback(async () => {
     try {
@@ -134,6 +148,22 @@ function Dashboard() {
     }
   }
 
+  const handleShareClick = (plan) => {
+    setSharePlanData(plan)
+  }
+
+  const handleShareModalClose = () => {
+    setSharePlanData(null)
+  }
+
+  const handlePlanUpdated = useCallback(
+    async (planId) => {
+      const updated = await fetchPlanById(planId)
+      if (updated) setSharePlanData(updated)
+    },
+    [fetchPlanById],
+  )
+
   return (
     <section className="dashboard">
       <div className="dashboard-head">
@@ -146,7 +176,27 @@ function Dashboard() {
 
       {error && <p className="error-text">{error}</p>}
 
-      <FloorPlanList plans={plans} plansLoaded={plansLoaded} onOpen={handleOpen} onRename={handleRename} onDelete={handleDelete} />
+      <FloorPlanList
+        plans={plans}
+        plansLoaded={plansLoaded}
+        user={user}
+        onOpen={handleOpen}
+        onRename={handleRename}
+        onDelete={handleDelete}
+        onShareClick={handleShareClick}
+      />
+
+      {sharePlanData && (
+        <ShareModal
+          plan={sharePlanData}
+          currentUserUid={user?.uid}
+          currentUserEmail={user?.email}
+          onShare={sharePlan}
+          onRemoveCollaborator={removeCollaborator}
+          onPlanUpdated={handlePlanUpdated}
+          onClose={handleShareModalClose}
+        />
+      )}
     </section>
   )
 }

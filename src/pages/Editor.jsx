@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import CanvasEditor from '../components/CanvasEditor'
 import { useEditorNav } from '../context/EditorNavContext'
+import { useAuth } from '../context/AuthContext'
 import { useFirestore } from '../hooks/useFirestore'
 
 const DEFAULT_COLORS = {
@@ -14,6 +15,7 @@ const DEFAULT_COLORS = {
 function Editor() {
   const { planId } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const editorNav = useEditorNav()
   const { fetchPlanById, savePlan, loading, error } = useFirestore()
 
@@ -21,6 +23,7 @@ function Editor() {
   const [objects, setObjects] = useState([])
   const [colors, setColors] = useState(DEFAULT_COLORS)
   const [isReady, setIsReady] = useState(false)
+  const [readOnly, setReadOnly] = useState(false)
   const [lastSavedSignature, setLastSavedSignature] = useState(
     JSON.stringify({ objects: [], colors: DEFAULT_COLORS }),
   )
@@ -115,6 +118,9 @@ function Editor() {
         ...DEFAULT_COLORS,
         ...(plan.colors || {}),
       }
+      const email = (user?.email || '').toLowerCase()
+      const role = plan.createdBy === user?.uid ? 'owner' : (plan.collaborators?.[email] || 'viewer')
+      setReadOnly(role === 'viewer')
       setPlanName(plan.name || 'Untitled Plan')
       setObjects(nextObjects)
       setColors(nextColors)
@@ -227,6 +233,7 @@ function Editor() {
         saveState={saveState}
         colors={colors}
         onColorsChange={setColors}
+        readOnly={readOnly}
       />
     </section>
   )

@@ -4,6 +4,8 @@ import {
   getFloorPlan,
   listFloorPlans,
   removeFloorPlan,
+  removeCollaborator,
+  shareFloorPlan,
   updateFloorPlan,
 } from '../firebase/firestore'
 import { useAuth } from '../context/AuthContext'
@@ -23,7 +25,7 @@ export function useFirestore() {
       setError('')
 
       try {
-        return await operation(user.uid)
+        return await operation(user)
       } catch (operationError) {
         setError(operationError.message || 'An unexpected Firestore error occurred.')
         throw operationError
@@ -37,10 +39,18 @@ export function useFirestore() {
   return {
     loading,
     error,
-    fetchFloorPlans: () => withGuard(() => listFloorPlans()),
-    createPlan: (name) => withGuard((uid) => createFloorPlan(uid, name, user?.displayName)),
+    fetchFloorPlans: () =>
+      withGuard((u) => listFloorPlans(u.uid, u.email || '')),
+    createPlan: (name) =>
+      withGuard((u) =>
+        createFloorPlan(u.uid, name, u.displayName ?? '', u.email ?? ''),
+      ),
     fetchPlanById: (planId) => withGuard(() => getFloorPlan(planId)),
     savePlan: (planId, payload) => withGuard(() => updateFloorPlan(planId, payload)),
     deletePlan: (planId) => withGuard(() => removeFloorPlan(planId)),
+    sharePlan: (planId, email, role) =>
+      withGuard(() => shareFloorPlan(planId, email, role)),
+    removeCollaborator: (planId, email) =>
+      withGuard(() => removeCollaborator(planId, email)),
   }
 }

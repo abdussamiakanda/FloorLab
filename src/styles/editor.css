@@ -16,6 +16,17 @@
   overflow: hidden;
 }
 
+.editor-readonly-banner {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+  border-bottom: 1px solid #fcd34d;
+}
+
 /* Tab to reopen sidebar when closed */
 .sidebar-open-tab {
   position: absolute;

@@ -16,7 +16,7 @@ function Login() {
     } catch (authError) {
       const message = authError.message || 'Unable to sign in with Google.'
       if (message.includes('permission')) {
-        setError('Firestore permissions not configured. See firestore.rules file in project root.')
+        setError('You don\'t have access to this app, or Firestore rules need to be deployed.')
       } else {
         setError(message)
       }

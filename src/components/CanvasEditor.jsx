@@ -148,6 +148,7 @@ function CanvasEditor({
   saveState,
   colors,
   onColorsChange,
+  readOnly = false,
 }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
@@ -1022,6 +1023,12 @@ function CanvasEditor({
 
     const worldPoint = toSnap(worldFromPointer(event))
 
+    if (readOnly) {
+      const hitObject = findObjectAtPoint(worldPoint)
+      selectObject(hitObject?.id ?? null)
+      return
+    }
+
     if (state.selectedTool === 'wall' || state.selectedTool === 'door' || state.selectedTool === 'window' || state.selectedTool === 'room') {
       setWallDraft({ start: worldPoint, end: worldPoint })
       return
@@ -1061,6 +1068,8 @@ function CanvasEditor({
       return
     }
 
+    if (readOnly) return
+
     if (state.wallDraft) {
       setWallDraft({
         start: state.wallDraft.start,
@@ -1087,7 +1096,7 @@ function CanvasEditor({
     panStateRef.current = null
     dragStateRef.current = null
 
-    if (!state.wallDraft) {
+    if (readOnly || !state.wallDraft) {
       return
     }
 
@@ -1162,6 +1171,22 @@ function CanvasEditor({
       const isInput = tag === 'input' || tag === 'textarea' || e.target?.isContentEditable
       if (isInput) return
 
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setTool('select')
+        selectObject(null)
+        setWallDraft(null)
+        return
+      }
+
+      if (readOnly) {
+        if (e.key.toLowerCase() === 'v') {
+          e.preventDefault()
+          setTool('select')
+        }
+        return
+      }
+
       const ctrlOrMeta = e.ctrlKey || e.metaKey
 
       if (ctrlOrMeta && e.key === 'z') {
@@ -1186,14 +1211,6 @@ function CanvasEditor({
       if (ctrlOrMeta && e.key === 'd') {
         e.preventDefault()
         handleDuplicate()
-        return
-      }
-
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        setTool('select')
-        selectObject(null)
-        setWallDraft(null)
         return
       }
 
@@ -1229,7 +1246,7 @@ function CanvasEditor({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [shortcutsModalOpen, state.selectedObjectId, state.wallDraft, undo, redo, onSave, handleDuplicate, setTool, setWallDraft, selectObject, deleteObject])
+  }, [readOnly, shortcutsModalOpen, state.selectedObjectId, state.wallDraft, undo, redo, onSave, handleDuplicate, setTool, setWallDraft, selectObject, deleteObject])
 
   const handleExportPng = () => {
     const canvas = canvasRef.current
@@ -1241,7 +1258,12 @@ function CanvasEditor({
   }
 
   return (
-    <div className="editor-wrap">
+    <div className={`editor-wrap ${readOnly ? 'editor-wrap-readonly' : ''}`}>
+      {readOnly && (
+        <div className="editor-readonly-banner" role="status">
+          View only — you can open and pan this plan but cannot edit it.
+        </div>
+      )}
       {/* Main layout with sidebar and canvas */}
       <div className="editor-main">
         {!sidebarOpen && (
@@ -1282,8 +1304,9 @@ function CanvasEditor({
                   key={id}
                   type="button"
                   className={`tool-btn ${state.selectedTool === id ? 'active' : ''}`}
-                  onClick={() => setTool(id)}
-                  title={`${label} (${shortcut})`}
+                  onClick={() => !readOnly && setTool(id)}
+                  disabled={readOnly && id !== 'select'}
+                  title={readOnly && id !== 'select' ? 'View only' : `${label} (${shortcut})`}
                 >
                   <span className="tool-btn-icon"><Icon size={16} /></span>
                   {label}
@@ -1293,11 +1316,11 @@ function CanvasEditor({
 
             <div className="toolbar-group toolbar-group-grid">
               <div className="toolbar-label">Edit</div>
-              <button type="button" className="tool-btn" onClick={undo} title="Undo (Ctrl+Z)">
+              <button type="button" className="tool-btn" onClick={undo} disabled={readOnly} title="Undo (Ctrl+Z)">
                 <span className="tool-btn-icon"><Undo2 size={16} /></span>
                 Undo
               </button>
-              <button type="button" className="tool-btn" onClick={redo} title="Redo (Ctrl+Shift+Z)">
+              <button type="button" className="tool-btn" onClick={redo} disabled={readOnly} title="Redo (Ctrl+Shift+Z)">
                 <span className="tool-btn-icon"><Redo2 size={16} /></span>
                 Redo
               </button>
@@ -1305,13 +1328,13 @@ function CanvasEditor({
                 type="button"
                 className="tool-btn"
                 onClick={handleDuplicate}
-                disabled={!selectedObject}
+                disabled={readOnly || !selectedObject}
                 title="Duplicate (Ctrl+D)"
               >
                 <span className="tool-btn-icon"><Copy size={16} /></span>
                 Duplicate
               </button>
-              <button type="button" className="tool-btn tool-btn-save" onClick={onSave} title="Save (Ctrl+S)">
+              <button type="button" className="tool-btn tool-btn-save" onClick={onSave} disabled={readOnly} title="Save (Ctrl+S)">
                 <span className="tool-btn-icon"><Save size={16} /></span>
                 Save
               </button>
@@ -1626,25 +1649,29 @@ function CanvasEditor({
                                   )}
                                 </div>
                                 <div className="object-list-actions">
-                                  <button
-                                    type="button"
-                                    className="object-list-btn"
-                                    onClick={(e) => { e.stopPropagation(); toggleObjectVisible(object) }}
-                                    title={object.visible !== false ? 'Hide' : 'Show'}
-                                    aria-label={object.visible !== false ? 'Hide object' : 'Show object'}
-                                  >
-                                    {object.visible !== false ? <Eye size={14} /> : <EyeOff size={14} />}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="object-list-btn object-list-btn-remove"
-                                    onClick={(e) => { e.stopPropagation(); deleteObject(object.id); if (state.selectedObjectId === object.id) selectObject(null) }}
-                                    title="Remove"
-                                    aria-label="Remove object"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                  {!isEditing && (
+                                  {!readOnly && (
+                                    <button
+                                      type="button"
+                                      className="object-list-btn"
+                                      onClick={(e) => { e.stopPropagation(); toggleObjectVisible(object) }}
+                                      title={object.visible !== false ? 'Hide' : 'Show'}
+                                      aria-label={object.visible !== false ? 'Hide object' : 'Show object'}
+                                    >
+                                      {object.visible !== false ? <Eye size={14} /> : <EyeOff size={14} />}
+                                    </button>
+                                  )}
+                                  {!readOnly && (
+                                    <button
+                                      type="button"
+                                      className="object-list-btn object-list-btn-remove"
+                                      onClick={(e) => { e.stopPropagation(); deleteObject(object.id); if (state.selectedObjectId === object.id) selectObject(null) }}
+                                      title="Remove"
+                                      aria-label="Remove object"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  )}
+                                  {!readOnly && !isEditing && (
                                     <button
                                       type="button"
                                       className="object-list-btn"
@@ -1657,7 +1684,7 @@ function CanvasEditor({
                                   )}
                                 </div>
                               </div>
-                              {isSelected && object.type === 'wall' && (
+                              {!readOnly && isSelected && object.type === 'wall' && (
                                 <div className="toolbar-group toolbar-group-properties object-list-item-properties">
                                   <div className="toolbar-label">Wall</div>
                                   <label className="toolbar-field">
@@ -1675,7 +1702,7 @@ function CanvasEditor({
                                   </label>
                                 </div>
                               )}
-                              {isSelected && object.type === 'door' && (
+                              {!readOnly && isSelected && object.type === 'door' && (
                                 <div className="toolbar-group toolbar-group-properties object-list-item-properties">
                                   <div className="toolbar-label">Door</div>
                                   <label className="toolbar-field">
@@ -1693,7 +1720,7 @@ function CanvasEditor({
                                   </label>
                                 </div>
                               )}
-                              {isSelected && object.type === 'window' && (
+                              {!readOnly && isSelected && object.type === 'window' && (
                                 <div className="toolbar-group toolbar-group-properties object-list-item-properties">
                                   <div className="toolbar-label">Window</div>
                                   <label className="toolbar-field">
@@ -1711,7 +1738,7 @@ function CanvasEditor({
                                   </label>
                                 </div>
                               )}
-                              {isSelected && object.type === 'room' && (
+                              {!readOnly && isSelected && object.type === 'room' && (
                                 <div className="toolbar-group toolbar-group-properties object-list-item-properties">
                                   <div className="toolbar-label">Room</div>
                                   <label className="toolbar-field">
