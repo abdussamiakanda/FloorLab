@@ -225,6 +225,7 @@ function Editor() {
     <section className="editor-page">
       <CanvasEditor
         key={planId}
+        planId={planId}
         initialObjects={objects}
         onObjectsChange={handleObjectsChange}
         onSave={saveNow}

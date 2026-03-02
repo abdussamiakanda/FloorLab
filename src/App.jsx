@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard.jsx'
 import { useAuth } from './context/AuthContext.jsx'
 import { EditorNavProvider } from './context/EditorNavContext.jsx'
 import Editor from './pages/Editor.jsx'
+import Viewer3D from './pages/Viewer3D.jsx'
 import Login from './pages/Login.jsx'
 
 function ProtectedRoute({ children }) {
@@ -35,6 +36,7 @@ function PrivateLayout() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/editor/:planId" element={<Editor />} />
+              <Route path="/3d/:planId" element={<Viewer3D />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

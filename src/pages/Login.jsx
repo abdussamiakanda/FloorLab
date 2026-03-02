@@ -31,11 +31,11 @@ function Login() {
         <div className="login-header">
           <img src="/favicon.svg" alt="" className="logo-icon" width={48} height={48} aria-hidden />
           <h1>FloorLab</h1>
-          <p className="login-subtitle">Create professional 2D floor plans with ease</p>
+          <p className="login-subtitle">Design floor plans in 2D, view them in 3D</p>
         </div>
 
         <div className="login-content">
-          <p className="login-description">Sign in to create, edit, and manage your floor plans from anywhere.</p>
+          <p className="login-description">Sign in with Google to create, edit, and share floor plans.</p>
           
           {error && (
             <div className="error-banner">

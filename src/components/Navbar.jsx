@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useMatch } from 'react-router-dom'
 import { fire as SwalFire } from '../utils/swalWithLucide'
 import { useAuth } from '../context/AuthContext'
 import { useEditorNav } from '../context/EditorNavContext'
@@ -15,7 +15,11 @@ function Navbar() {
   const titleInputRef = useRef(null)
   const dropdownRef = useRef(null)
 
-  const isEditor = location.pathname.startsWith('/editor/')
+  const viewer3DMatch = useMatch('/3d/:planId')
+  const pathname = location.pathname || ''
+  const isEditor = pathname.startsWith('/editor/')
+  const isViewer3D = !!viewer3DMatch || pathname.startsWith('/3d/')
+  const planId = viewer3DMatch?.params?.planId ?? (pathname.startsWith('/3d/') ? pathname.slice(4).split('/')[0] : undefined)
 
   const startEditingTitle = () => {
     if (!editorNav) return
@@ -84,7 +88,21 @@ function Navbar() {
   return (
     <header className="navbar">
       <div className="navbar-brand">
-        {isEditor && editorNav ? (
+        {isViewer3D && editorNav && planId ? (
+          <>
+            <Link
+              to={`/editor/${planId}`}
+              className="navbar-editor-btn"
+              title="Back to editor"
+              aria-label="Back to editor"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+            <span className="navbar-editor-title">
+              3D View: {editorNav.planName || 'Untitled Plan'}
+            </span>
+          </>
+        ) : isEditor && editorNav ? (
           <>
             <Link to="/" className="navbar-editor-btn" title="Back to all plans" aria-label="Back to all plans">
               <ArrowLeft size={20} />

@@ -449,6 +449,14 @@
   padding-bottom: 0;
 }
 
+.toolbar-import-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .toolbar-label {
   font-size: 0.6875rem;
   font-weight: 600;
@@ -856,5 +864,114 @@
   .canvas-legend {
     display: none;
   }
+}
+
+/* 3D viewer page */
+.viewer-3d-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: #1e293b;
+}
+
+.viewer-3d-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+
+.viewer-3d-canvas-wrap > div:not(.viewer-3d-axes-corner) {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+}
+
+.viewer-3d-canvas-wrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.viewer-3d-axes-corner {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.viewer-3d-axes-corner canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.viewer-3d-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: #94a3b8;
+  font-size: 0.9375rem;
+}
+
+.viewer-3d-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.viewer-3d-placeholder h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  color: #e2e8f0;
+}
+
+.viewer-3d-placeholder p {
+  margin: 0.5rem 0;
+  color: #94a3b8;
+  font-size: 0.9375rem;
+}
+
+.viewer-3d-error {
+  color: #f87171;
+}
+
+.viewer-3d-coming {
+  margin-top: 1rem !important;
+  font-style: italic;
+}
+
+.viewer-3d-back-btn {
+  margin-top: 1.5rem;
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.viewer-3d-back-btn:hover {
+  background: #334155;
 }
 

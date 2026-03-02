@@ -1,12 +1,13 @@
 # FloorLab
 
-A 2D floor plan designer built with React, Vite, Firebase (Auth + Firestore), and Google sign-in. Create floor plans with walls, doors, windows, and rooms; customize colors and dimensions; save to the cloud and export to JSON or PNG.
+A floor plan designer built with React, Vite, and Firebase. Create 2D floor plans with walls, doors, windows, and rooms; customize colors and dimensions; view them in 3D; save to the cloud; and export to JSON or PNG.
 
 ## Tech stack
 
 - **React 19** + **Vite 7**
 - **Firebase** (modular SDK): Authentication (Google), Firestore
 - **React Router** (protected routes)
+- **Three.js** + **@react-three/fiber** + **@react-three/drei** (3D viewer)
 - **Lucide React** (icons), **SweetAlert2** (modals)
 
 ## Setup
@@ -54,12 +55,21 @@ A 2D floor plan designer built with React, Vite, Firebase (Auth + Firestore), an
   - **Edit**: Undo (Ctrl+Z), Redo (Ctrl+Shift+Z), Duplicate (Ctrl+D), Save (Ctrl+S).
   - **View**: Grid, Snap, dimension Labels, Rulers toggles.
   - **Export**: JSON, PNG.
+  - **3D View** button opens the plan in the 3D viewer.
   - **Keyboard shortcuts** button opens a modal with all shortcuts.
 - **Legend** (left): color pickers for Wall, Door, Window, Room; colors are saved with the plan.
 - **Canvas**: full-size workspace, mouse wheel zoom, middle-button pan, grid, snap-to-grid. Rulers on bottom and right (labels at multiples of 5). Selected object is drawn on top.
 - **Right sidebar** (collapsible, resizable):
   - **Objects** list grouped by type: Rooms, Doors, Windows, Walls. Each group can be expanded/collapsed and shows a count.
   - Per object: click to select, visibility (eye), delete, rename. When selected, inline properties: length (wall/door/window) or width/height (room) in grid units.
+
+### 3D viewer
+
+- **Route**: `/3d/:planId` (also opened from the editor toolbar).
+- **Orbit controls**: rotate, pan, and zoom to explore the floor plan in 3D.
+- **Rendering**: floor, walls (from rooms and standalone walls), doors, and windows with fixed colors.
+- **Axis indicator**: fixed in the bottom-left corner, rotates with the camera to show world X, Y, Z.
+- **Navbar**: same as editor—back to editor, plan title (“3D View: &lt;plan name&gt;”).
 
 ### Saving & export
 

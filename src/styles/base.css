@@ -163,9 +163,10 @@ button:disabled {
 
 /* App shell layout */
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .page-content {
@@ -174,4 +175,5 @@ button:disabled {
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
+  overflow-y: auto;
 }

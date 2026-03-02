@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useCanvas } from '../hooks/useCanvas'
 import { useEditorNav } from '../context/EditorNavContext'
 import {
+  Box,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -27,6 +29,7 @@ import {
   Square,
   Trash2,
   Undo2,
+  Upload,
   X,
 } from 'lucide-react'
 
@@ -140,6 +143,7 @@ const pointToWallDistance = (point, wall) => {
 }
 
 function CanvasEditor({
+  planId,
   initialObjects,
   onObjectsChange,
   onSave,
@@ -150,6 +154,7 @@ function CanvasEditor({
   onColorsChange,
   readOnly = false,
 }) {
+  const navigate = useNavigate()
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
   const rulerBottomRef = useRef(null)
@@ -1250,11 +1255,50 @@ function CanvasEditor({
 
   const handleExportPng = () => {
     const canvas = canvasRef.current
-    const png = canvas.toDataURL('image/png')
+    if (!canvas) return
+    const off = document.createElement('canvas')
+    off.width = canvas.width
+    off.height = canvas.height
+    const ctx = off.getContext('2d')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, off.width, off.height)
+    ctx.drawImage(canvas, 0, 0)
+    const png = off.toDataURL('image/png')
     const link = document.createElement('a')
     link.href = png
     link.download = 'floorplan.png'
     link.click()
+  }
+
+  const importInputRef = useRef(null)
+
+  const handleImportJson = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result)
+        const raw = Array.isArray(data) ? data : data?.objects ? data.objects : []
+        const normalized = raw.map((obj) => ({
+          id: obj.id && typeof obj.id === 'string' ? obj.id : crypto.randomUUID(),
+          type: ['wall', 'door', 'window', 'room'].includes(obj.type) ? obj.type : 'wall',
+          name: typeof obj.name === 'string' ? obj.name : '',
+          visible: obj.visible !== false,
+          x: Number(obj.x) || 0,
+          y: Number(obj.y) || 0,
+          width: Number(obj.width) || 24,
+          height: Number(obj.height) ?? 6,
+          rotation: Number(obj.rotation) || 0,
+        }))
+        resetPlan(normalized)
+      } catch (err) {
+        console.error('Import JSON failed:', err)
+        alert('Invalid JSON file. Use an exported floor plan JSON.')
+      }
+      e.target.value = ''
+    }
+    reader.readAsText(file)
   }
 
   return (
@@ -1358,15 +1402,44 @@ function CanvasEditor({
                 <span className="tool-btn-icon"><Ruler size={16} /></span>
                 Rulers
               </button>
+              {planId && (
+                <button
+                  type="button"
+                  className="tool-btn"
+                  onClick={() => navigate(`/3d/${planId}`)}
+                  title="Open 3D view"
+                >
+                  <span className="tool-btn-icon"><Box size={16} /></span>
+                  3D
+                </button>
+              )}
             </div>
 
             <div className="toolbar-group">
-              <div className="toolbar-label">Export</div>
+              <div className="toolbar-label">Import / Export</div>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleImportJson}
+                className="toolbar-import-input"
+                aria-label="Import JSON"
+              />
+              <button
+                type="button"
+                className="tool-btn"
+                onClick={() => importInputRef.current?.click()}
+                disabled={readOnly}
+                title="Import JSON"
+              >
+                <span className="tool-btn-icon"><Upload size={16} /></span>
+                Import JSON
+              </button>
               <button type="button" className="tool-btn" onClick={onExportJson} title="Export JSON">
                 <span className="tool-btn-icon"><Download size={16} /></span>
                 Export JSON
               </button>
-              <button type="button" className="tool-btn" onClick={handleExportPng} title="Export PNG">
+              <button type="button" className="tool-btn" onClick={handleExportPng} title="Export PNG (white background)">
                 <span className="tool-btn-icon"><Download size={16} /></span>
                 Export PNG
               </button>
