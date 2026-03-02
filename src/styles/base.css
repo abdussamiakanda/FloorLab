@@ -1,0 +1,177 @@
+/* Base styles and resets */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0f172a;
+}
+
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+/* Button base styles */
+button {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #f1f5f9;
+}
+
+button.active {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Utility classes */
+.center-screen {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Loading states – modern CSS */
+.loading-screen,
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: #64748b;
+  font-size: 0.9375rem;
+}
+
+.loading-screen {
+  min-height: 100vh;
+  width: 100%;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+.loading-state {
+  padding: 2rem 1.5rem;
+  min-height: 8rem;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #0f172a;
+  border-radius: 50%;
+  animation: loading-spin 0.7s linear infinite;
+}
+
+.loading-screen .loading-spinner,
+.loading-state .loading-spinner {
+  flex-shrink: 0;
+}
+
+.loading-screen .loading-message,
+.loading-state .loading-message {
+  margin: 0;
+  font-weight: 500;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Skeleton pulse for list loading */
+.loading-skeleton {
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    #f1f5f9 0%,
+    #e2e8f0 50%,
+    #f1f5f9 100%
+  );
+  background-size: 200% 100%;
+  animation: loading-skeleton 1.2s ease-in-out infinite;
+}
+
+@keyframes loading-skeleton {
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.loading-list-skeletons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.loading-list-skeletons .skeleton-item {
+  height: 88px;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    #f1f5f9 0%,
+    #e2e8f0 50%,
+    #f1f5f9 100%
+  );
+  background-size: 200% 100%;
+  animation: loading-skeleton 1.2s ease-in-out infinite;
+}
+
+.error-text {
+  color: #b91c1c;
+}
+
+.success-text {
+  color: #16a34a;
+}
+
+.empty-state {
+  color: #475569;
+}
+
+.danger {
+  color: #b91c1c;
+}
+
+/* App shell layout */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
