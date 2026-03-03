@@ -113,7 +113,10 @@ function ShareModal({ plan, currentUserUid, currentUserEmail, onShare, onRemoveC
             <h3 className="share-modal-section-title">People with access</h3>
             <ul className="share-collab-list">
               <li className="share-collab-item share-owner">
-                <span className="share-collab-email">{plan?.ownerEmail || (isOwner ? 'You' : '—')}</span>
+                <span className="share-collab-email">
+                  {plan?.ownerEmail || '—'}
+                  {isOwner && ' (You)'}
+                </span>
                 <span className="share-collab-role">Owner</span>
               </li>
               {collaboratorEmails.map(([collabEmail, collabRole]) => (
