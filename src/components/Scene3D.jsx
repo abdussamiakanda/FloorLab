@@ -238,7 +238,8 @@ function DoorMesh({ object, color }) {
     [width],
   )
 
-  const knobX = width / 2 - DOOR_KNOB_OFFSET_FROM_EDGE
+  const isYZPlane = Math.abs(Math.cos(angle)) >= Math.abs(Math.sin(angle))
+  const knobX = isYZPlane ? -width / 2 + DOOR_KNOB_OFFSET_FROM_EDGE : width / 2 - DOOR_KNOB_OFFSET_FROM_EDGE
   const knobY = (DOOR_HEIGHT * DOOR_KNOB_HEIGHT_RATIO) - DOOR_HEIGHT / 2
   const knobZ = DOOR_THICKNESS / 2 + DOOR_KNOB_RADIUS
 
