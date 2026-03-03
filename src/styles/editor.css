@@ -516,6 +516,49 @@
   height: 16px;
 }
 
+.tool-mirror-wrap {
+  position: relative;
+}
+
+.tool-mirror-wrap .tool-btn .tool-mirror-chevron {
+  margin-left: 0.2rem;
+  opacity: 0.7;
+}
+
+.tool-mirror-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 2px;
+  min-width: 10rem;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tool-mirror-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.tool-mirror-option:hover {
+  background: #f1f5f9;
+}
+
 /* Editor sidebar Save button — explicit so global/toolbar button styles don’t override */
 .editor-sidebar .toolbar .tool-btn-save,
 .editor-sidebar .toolbar button.tool-btn-save {

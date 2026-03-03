@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { BoxGeometry, BufferGeometry, CylinderGeometry, DoubleSide, EdgesGeometry, Vector3 } from 'three'
+import { BoxGeometry, BufferGeometry, CylinderGeometry, DoubleSide, EdgesGeometry, SphereGeometry, Vector3 } from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html, OrbitControls } from '@react-three/drei'
 
@@ -13,8 +13,15 @@ const DOOR_THICKNESS = WALL_THICKNESS + 2
 const WINDOW_HEIGHT = 0.5 * WALL_HEIGHT
 const WINDOW_THICKNESS = WALL_THICKNESS + 2
 const DEFAULT_DOOR_COLOR = '#16a34a'
+const DOOR_KNOB_RADIUS = 4
+const DOOR_KNOB_OFFSET_FROM_EDGE = 10
+const DOOR_KNOB_HEIGHT_RATIO = 0.5
+const DOOR_KNOB_COLOR = '#1e3a5f'
 const DEFAULT_WINDOW_COLOR = '#7c3aed'
 const WINDOW_OPACITY = 0.5
+const WINDOW_FRAME_WIDTH = 6
+const WINDOW_FRAME_COLOR = '#f0f0e9'
+const WINDOW_RECESS_DEPTH = 2
 const FLOOR_SIZE_MULTIPLIER = 1
 const FLOOR_SIZE_MIN = 50
 const FLOOR_SIZE_DEFAULT = 100
@@ -189,25 +196,29 @@ export function getPlanBounds(objects) {
 }
 
 function WallMesh({ object, color, thickness = WALL_THICKNESS, height = WALL_HEIGHT }) {
-  const { x, y, width, rotation } = object
+  const { x, y, width, rotation, yMin, yMax } = object
   const angle = toRadians(rotation)
   const cx = x + (Math.cos(angle) * width) / 2
   const cy = y + (Math.sin(angle) * width) / 2
   const [posX, posY, posZ] = planTo3D(cx, cy)
 
-  const boxArgs = useMemo(() => [width, height, thickness], [width, height, thickness])
+  const useVerticalSlice = yMin != null && yMax != null
+  const boxHeight = useVerticalSlice ? yMax - yMin : height
+  const boxCenterY = useVerticalSlice ? (yMin + yMax) / 2 - WALL_HEIGHT / 2 : 0
+
+  const boxArgs = useMemo(() => [width, boxHeight, thickness], [width, boxHeight, thickness])
   const edgesGeometry = useMemo(
-    () => new EdgesGeometry(new BoxGeometry(width, height, thickness)),
-    [width, height, thickness],
+    () => new EdgesGeometry(new BoxGeometry(width, boxHeight, thickness)),
+    [width, boxHeight, thickness],
   )
 
   return (
-    <group position={[posX, posY + height / 2, posZ]} rotation={[0, -angle, 0]}>
-      <mesh>
+    <group position={[posX, posY + WALL_HEIGHT / 2, posZ]} rotation={[0, -angle, 0]}>
+      <mesh position={[0, boxCenterY, 0]}>
         <boxGeometry args={boxArgs} />
         <meshStandardMaterial color={color} />
       </mesh>
-      <lineSegments geometry={edgesGeometry}>
+      <lineSegments geometry={edgesGeometry} position={[0, boxCenterY, 0]}>
         <lineBasicMaterial color={WALL_EDGE_COLOR} />
       </lineSegments>
     </group>
@@ -215,13 +226,41 @@ function WallMesh({ object, color, thickness = WALL_THICKNESS, height = WALL_HEI
 }
 
 function DoorMesh({ object, color }) {
+  const { x, y, width, rotation } = object
+  const angle = toRadians(rotation)
+  const cx = x + (Math.cos(angle) * width) / 2
+  const cy = y + (Math.sin(angle) * width) / 2
+  const [posX, posY, posZ] = planTo3D(cx, cy)
+
+  const boxArgs = useMemo(() => [width, DOOR_HEIGHT, DOOR_THICKNESS], [width])
+  const edgesGeometry = useMemo(
+    () => new EdgesGeometry(new BoxGeometry(width, DOOR_HEIGHT, DOOR_THICKNESS)),
+    [width],
+  )
+
+  const knobY = (DOOR_HEIGHT * DOOR_KNOB_HEIGHT_RATIO) - DOOR_HEIGHT / 2
+  /* Match 2D arc. XY-plane doors (90/270°) are correct; ZY-plane doors (0/180°) need flip */
+  const rotNorm = ((Number(rotation) % 360) + 360) % 360
+  const arcSide = rotNorm < 180 ? 1 : -1
+  const isZYPlane = Math.abs(Math.cos(angle)) >= Math.abs(Math.sin(angle))
+  const knobSide = isZYPlane ? -arcSide : arcSide
+  const knobX = isZYPlane ? -width / 2 + DOOR_KNOB_OFFSET_FROM_EDGE : width / 2 - DOOR_KNOB_OFFSET_FROM_EDGE
+  const knobZ = knobSide * (DOOR_THICKNESS / 2 + DOOR_KNOB_RADIUS)
+
   return (
-    <WallMesh
-      object={object}
-      color={color}
-      thickness={DOOR_THICKNESS}
-      height={DOOR_HEIGHT}
-    />
+    <group position={[posX, posY + DOOR_HEIGHT / 2, posZ]} rotation={[0, -angle, 0]}>
+      <mesh>
+        <boxGeometry args={boxArgs} />
+        <meshStandardMaterial color={color} />
+      </mesh>
+      <lineSegments geometry={edgesGeometry}>
+        <lineBasicMaterial color={WALL_EDGE_COLOR} />
+      </lineSegments>
+      <mesh position={[knobX, knobY, knobZ]} castShadow receiveShadow>
+        <sphereGeometry args={[DOOR_KNOB_RADIUS, 12, 10]} />
+        <meshStandardMaterial color={DOOR_KNOB_COLOR} />
+      </mesh>
+    </group>
   )
 }
 
@@ -232,20 +271,45 @@ function WindowMesh({ object, color }) {
   const cy = y + (Math.sin(angle) * width) / 2
   const [posX, , posZ] = planTo3D(cx, cy)
 
-  const geometry = useMemo(
-    () => [width, WINDOW_HEIGHT, WINDOW_THICKNESS],
-    [width],
-  )
+  const f = WINDOW_FRAME_WIDTH
+  const depth = WINDOW_THICKNESS + WINDOW_RECESS_DEPTH
+  const glassW = Math.max(0, width - 2 * f)
+  const glassH = Math.max(0, WINDOW_HEIGHT - 2 * f)
+  const glassZ = depth / 2 - WINDOW_RECESS_DEPTH / 2
 
   return (
-    <mesh position={[posX, WALL_HEIGHT / 2, posZ]} rotation={[0, -angle, 0]}>
-      <boxGeometry args={geometry} />
-      <meshStandardMaterial
-        color={color}
-        transparent
-        opacity={WINDOW_OPACITY}
-      />
-    </mesh>
+    <group position={[posX, WALL_HEIGHT / 2, posZ]} rotation={[0, -angle, 0]}>
+      {/* Recess (opening in wall is handled by wall cutouts; optional shallow back) */}
+      {/* Left jamb */}
+      <mesh position={[-width / 2 + f / 2, 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[f, WINDOW_HEIGHT, depth]} />
+        <meshStandardMaterial color={WINDOW_FRAME_COLOR} />
+      </mesh>
+      {/* Right jamb */}
+      <mesh position={[width / 2 - f / 2, 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[f, WINDOW_HEIGHT, depth]} />
+        <meshStandardMaterial color={WINDOW_FRAME_COLOR} />
+      </mesh>
+      {/* Head */}
+      <mesh position={[0, WINDOW_HEIGHT / 2 - f / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[width, f, depth]} />
+        <meshStandardMaterial color={WINDOW_FRAME_COLOR} />
+      </mesh>
+      {/* Sill */}
+      <mesh position={[0, -WINDOW_HEIGHT / 2 + f / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[width, f, depth]} />
+        <meshStandardMaterial color={WINDOW_FRAME_COLOR} />
+      </mesh>
+      {/* Glass (transparent, slightly inset) */}
+      <mesh position={[0, 0, glassZ]}>
+        <boxGeometry args={[glassW, glassH, 2]} />
+        <meshStandardMaterial
+          color={color}
+          transparent
+          opacity={WINDOW_OPACITY}
+        />
+      </mesh>
+    </group>
   )
 }
 
@@ -634,6 +698,141 @@ function getRoomWalls(room) {
   ]
 }
 
+/** Normalize angle to [0, 360) */
+function normDeg(a) {
+  return ((Number(a) % 360) + 360) % 360
+}
+/** Whether two segments are on the same line (rotation mod 180) */
+function sameWallAngle(r1, r2) {
+  return Math.abs((normDeg(r1) - normDeg(r2) + 180) % 180) < 1e-6
+}
+
+const WINDOW_BOTTOM = WALL_HEIGHT / 2 - WINDOW_HEIGHT / 2
+const WINDOW_TOP = WALL_HEIGHT / 2 + WINDOW_HEIGHT / 2
+
+/**
+ * Returns wall segments that exclude openings (windows/doors).
+ * Doors: opening full height; draw wall header above door (DOOR_HEIGHT to WALL_HEIGHT).
+ * Windows: only window height is open; draw wall below and above the window.
+ * Returns { solidSegments, fillSegments } (fillSegments = window fills + door headers).
+ */
+function getWallSegmentsWithCutouts(wall, openings) {
+  const { x: wx, y: wy, width: ww, rotation: awDeg } = wall
+  const aw = toRadians(awDeg)
+  const cos = Math.cos(aw)
+  const sin = Math.sin(aw)
+
+  const intervals = []
+  openings.forEach((op) => {
+    if (!sameWallAngle(awDeg, op.rotation)) return
+    const ox = op.x
+    const oy = op.y
+    const ow = op.width
+    const oa = toRadians(op.rotation)
+    const opCenterX = ox + (ow * Math.cos(oa)) / 2
+    const opCenterY = oy + (ow * Math.sin(oa)) / 2
+    const perpDist = Math.abs((opCenterX - wx) * (-sin) + (opCenterY - wy) * cos)
+    const threshold = (op.height != null ? op.height : 20) / 2 + WALL_THICKNESS
+    if (perpDist > threshold) return
+    const t1 = (ox - wx) * cos + (oy - wy) * sin
+    const t2 = (ox + ow * Math.cos(oa) - wx) * cos + (oy + ow * Math.sin(oa) - wy) * sin
+    let lo = Math.min(t1, t2)
+    let hi = Math.max(t1, t2)
+    if (hi < 0 || lo > ww) return
+    lo = Math.max(0, lo)
+    hi = Math.min(ww, hi)
+    if (hi - lo < 1e-6) return
+    intervals.push({ lo, hi, isWindow: op.type === 'window' })
+  })
+
+  if (intervals.length === 0) return { solidSegments: [wall], fillSegments: [] }
+
+  intervals.sort((a, b) => a.lo - b.lo)
+  const merged = []
+  let cur = { ...intervals[0] }
+  for (let i = 1; i < intervals.length; i++) {
+    const it = intervals[i]
+    if (it.lo <= cur.hi + 1e-6) {
+      cur.hi = Math.max(cur.hi, it.hi)
+      cur.isWindow = cur.isWindow || it.isWindow
+    } else {
+      merged.push(cur)
+      cur = { ...it }
+    }
+  }
+  merged.push(cur)
+
+  const windowOnlyIntervals = intervals.filter((i) => i.isWindow)
+  windowOnlyIntervals.sort((a, b) => a.lo - b.lo)
+  const mergedWindows = []
+  for (let i = 0; i < windowOnlyIntervals.length; i++) {
+    const it = windowOnlyIntervals[i]
+    if (mergedWindows.length && it.lo <= mergedWindows[mergedWindows.length - 1].hi + 1e-6) {
+      mergedWindows[mergedWindows.length - 1].hi = Math.max(mergedWindows[mergedWindows.length - 1].hi, it.hi)
+    } else {
+      mergedWindows.push({ lo: it.lo, hi: it.hi })
+    }
+  }
+
+  const doorOnlyIntervals = intervals.filter((i) => !i.isWindow)
+  doorOnlyIntervals.sort((a, b) => a.lo - b.lo)
+  const mergedDoors = []
+  for (let i = 0; i < doorOnlyIntervals.length; i++) {
+    const it = doorOnlyIntervals[i]
+    if (mergedDoors.length && it.lo <= mergedDoors[mergedDoors.length - 1].hi + 1e-6) {
+      mergedDoors[mergedDoors.length - 1].hi = Math.max(mergedDoors[mergedDoors.length - 1].hi, it.hi)
+    } else {
+      mergedDoors.push({ lo: it.lo, hi: it.hi })
+    }
+  }
+
+  const solidSegments = []
+  const fillSegments = []
+  let prevEnd = 0
+  merged.forEach(({ lo, hi }) => {
+    if (lo - prevEnd > 1e-6) {
+      solidSegments.push({
+        x: wx + prevEnd * cos,
+        y: wy + prevEnd * sin,
+        width: lo - prevEnd,
+        rotation: awDeg,
+      })
+    }
+    prevEnd = hi
+  })
+  mergedWindows.forEach(({ lo, hi }) => {
+    const segW = hi - lo
+    const segX = wx + lo * cos
+    const segY = wy + lo * sin
+    fillSegments.push(
+      { x: segX, y: segY, width: segW, rotation: awDeg, yMin: 0, yMax: WINDOW_BOTTOM },
+      { x: segX, y: segY, width: segW, rotation: awDeg, yMin: WINDOW_TOP, yMax: WALL_HEIGHT },
+    )
+  })
+  mergedDoors.forEach(({ lo, hi }) => {
+    const segW = hi - lo
+    const segX = wx + lo * cos
+    const segY = wy + lo * sin
+    fillSegments.push({
+      x: segX,
+      y: segY,
+      width: segW,
+      rotation: awDeg,
+      yMin: DOOR_HEIGHT,
+      yMax: WALL_HEIGHT,
+    })
+  })
+  if (ww - prevEnd > 1e-6) {
+    solidSegments.push({
+      x: wx + prevEnd * cos,
+      y: wy + prevEnd * sin,
+      width: ww - prevEnd,
+      rotation: awDeg,
+    })
+  }
+  return { solidSegments, fillSegments }
+}
+
 function FloorPlanScene({ objects, colors, center, floorSize, cameraRef }) {
   const doorColor = DEFAULT_DOOR_COLOR
   const windowColor = DEFAULT_WINDOW_COLOR
@@ -641,6 +840,11 @@ function FloorPlanScene({ objects, colors, center, floorSize, cameraRef }) {
   const visible = (objects || []).filter((obj) => obj.visible !== false)
   const target = center ?? [0, 0, 0]
   const floorExtent = Math.max(floorSize ?? FLOOR_SIZE_DEFAULT, FLOOR_SIZE_MIN) * FLOOR_SIZE_MULTIPLIER
+
+  const openings = useMemo(
+    () => visible.filter((obj) => obj.type === 'window' || obj.type === 'door'),
+    [visible],
+  )
 
   const roomWalls = useMemo(() => {
     const segments = []
@@ -654,6 +858,31 @@ function FloorPlanScene({ objects, colors, center, floorSize, cameraRef }) {
     return segments
   }, [visible])
 
+  const roomWallSegmentsWithCutouts = useMemo(() => {
+    const out = []
+    roomWalls.forEach((edge) => {
+      const { solidSegments, fillSegments } = getWallSegmentsWithCutouts(edge, openings)
+      solidSegments.forEach((seg, j) => {
+        out.push({ key: `${edge.key}-seg-${j}`, ...seg })
+      })
+      fillSegments.forEach((seg, j) => {
+        out.push({ key: `${edge.key}-fill-${j}`, ...seg })
+      })
+    })
+    return out
+  }, [roomWalls, openings])
+
+  const standaloneWallSegmentsWithCutouts = useMemo(() => {
+    return visible
+      .filter((obj) => obj.type === 'wall')
+      .flatMap((obj) => {
+        const { solidSegments, fillSegments } = getWallSegmentsWithCutouts(obj, openings)
+        const solid = solidSegments.map((seg, j) => ({ key: `${obj.id}-seg-${j}`, ...seg }))
+        const fills = fillSegments.map((seg, j) => ({ key: `${obj.id}-fill-${j}`, ...seg }))
+        return [...solid, ...fills]
+      })
+  }, [visible, openings])
+
   return (
     <>
       <ambientLight intensity={0.6} />
@@ -666,14 +895,19 @@ function FloorPlanScene({ objects, colors, center, floorSize, cameraRef }) {
           <meshStandardMaterial color={FLOOR_COLOR} side={DoubleSide} />
         </mesh>
 
-        {/* Walls from room boundaries */}
-        {roomWalls.map((edge) => (
-          <WallMesh key={edge.key} object={edge} color={WALL_FACE_COLOR} />
+        {/* Walls from room boundaries (with window/door cutouts) */}
+        {roomWallSegmentsWithCutouts.map((seg) => (
+          <WallMesh key={seg.key} object={seg} color={WALL_FACE_COLOR} />
+        ))}
+
+        {/* Standalone walls (with window/door cutouts) */}
+        {standaloneWallSegmentsWithCutouts.map((seg) => (
+          <WallMesh key={seg.key} object={seg} color={WALL_FACE_COLOR} />
         ))}
 
         {visible.map((obj) => {
           if (obj.type === 'wall') {
-            return <WallMesh key={obj.id} object={obj} color={WALL_FACE_COLOR} />
+            return null
           }
           if (obj.type === 'door') {
             return <DoorMesh key={obj.id} object={obj} color={doorColor} />
