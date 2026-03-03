@@ -1115,7 +1115,8 @@ function CanvasEditor({
   }, [draw, drawRulers])
 
   const onMouseDown = (event) => {
-    if (event.button === 1) {
+    if (event.button === 1 || (event.button === 0 && (event.ctrlKey || event.metaKey))) {
+      event.preventDefault()
       panStateRef.current = {
         startMouse: { x: event.clientX, y: event.clientY },
         startPan: pan,
@@ -1756,6 +1757,7 @@ function CanvasEditor({
                 onMouseMove={onMouseMove}
                 onMouseUp={onMouseUp}
                 onMouseLeave={onMouseUp}
+                onContextMenu={(e) => e.preventDefault()}
                 style={{
                   cursor:
                     state.selectedTool === 'wall' || state.selectedTool === 'door' || state.selectedTool === 'window' || state.selectedTool === 'room' || state.selectedTool === 'custom'
