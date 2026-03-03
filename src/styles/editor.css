@@ -78,8 +78,8 @@
 
 /* Editor sidebar — when closed stay in flow with width 0 so row height doesn’t change */
 .editor-sidebar {
-  width: 200px;
-  min-width: 200px;
+  width: 220px;
+  min-width: 220px;
   flex-shrink: 0;
   min-height: 0;
   align-self: stretch;
@@ -717,6 +717,111 @@
   background: #ffffff;
   touch-action: none;
   user-select: none;
+}
+
+/* Generic modal (Custom tool, etc.) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1000;
+  animation: shortcuts-fade-in 0.2s ease;
+}
+
+.modal-content {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  max-width: 420px;
+  width: 100%;
+  max-height: calc(100vh - 3rem);
+  display: flex;
+  flex-direction: column;
+  animation: shortcuts-scale-in 0.2s ease;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.modal-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.modal-close-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.custom-tool-modal .custom-tool-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.custom-tool-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: 7.5rem;
+  min-width: 7.5rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 0.875rem;
+  text-align: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.custom-tool-option .custom-tool-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+
+.custom-tool-option:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.custom-tool-option .custom-tool-label {
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.custom-tool-size {
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
 /* Shortcuts modal */

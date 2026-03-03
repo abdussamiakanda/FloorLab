@@ -26,6 +26,20 @@ const AXES_Y_COLOR = '#43a047'
 const AXES_Z_COLOR = '#1e88e5'
 const CORNER_AXES_LENGTH = 0.8
 
+/** 3D height (same units as plan) per custom type for floor objects */
+const CUSTOM_3D_HEIGHTS = {
+  balcony: 100,
+  table: 70,
+  chair: 45,
+  basin: 90,
+  bed: 40,
+  sofa: 45,
+  wardrobe: 180,
+  toilet: 40,
+}
+const CUSTOM_3D_DEFAULT_HEIGHT = 50
+const CUSTOM_3D_COLOR = '#8b7355'
+
 const toRadians = (degrees) => (degrees * Math.PI) / 180
 
 /** Syncs main camera position to a ref so the corner axes overlay can match orientation. */
@@ -98,6 +112,21 @@ export function getPlanBounds(objects) {
       maxX = Math.max(maxX, obj.x, x2)
       maxY = Math.max(maxY, obj.y, y2)
     } else if (obj.type === 'room') {
+      const r = toRadians(obj.rotation || 0)
+      const cos = Math.cos(r), sin = Math.sin(r)
+      const corners = [
+        [obj.x, obj.y],
+        [obj.x + obj.width * cos, obj.y + obj.width * sin],
+        [obj.x + obj.width * cos - obj.height * sin, obj.y + obj.width * sin + obj.height * cos],
+        [obj.x - obj.height * sin, obj.y + obj.height * cos],
+      ]
+      corners.forEach(([px, py]) => {
+        minX = Math.min(minX, px)
+        minY = Math.min(minY, py)
+        maxX = Math.max(maxX, px)
+        maxY = Math.max(maxY, py)
+      })
+    } else if (obj.type === 'custom') {
       const r = toRadians(obj.rotation || 0)
       const cos = Math.cos(r), sin = Math.sin(r)
       const corners = [
@@ -185,6 +214,29 @@ function WindowMesh({ object, color }) {
   )
 }
 
+function CustomMesh({ object }) {
+  const { x, y, width, height, rotation = 0, customType } = object
+  const height3D = CUSTOM_3D_HEIGHTS[customType] ?? CUSTOM_3D_DEFAULT_HEIGHT
+  const angle = toRadians(rotation)
+  const cx = x + width / 2
+  const cy = y + height / 2
+  const [posX, , posZ] = planTo3D(cx, cy)
+
+  const boxArgs = useMemo(() => [width, height3D, height], [width, height3D, height])
+
+  return (
+    <mesh
+      position={[posX, height3D / 2, posZ]}
+      rotation={[0, -angle, 0]}
+      castShadow
+      receiveShadow
+    >
+      <boxGeometry args={boxArgs} />
+      <meshStandardMaterial color={CUSTOM_3D_COLOR} />
+    </mesh>
+  )
+}
+
 /** Returns 4 wall segments (x, y, width, rotation) for a room's edges */
 function getRoomWalls(room) {
   const { x, y, width, height, rotation = 0 } = room
@@ -249,6 +301,9 @@ function FloorPlanScene({ objects, colors, center, floorSize, cameraRef }) {
           }
           if (obj.type === 'window') {
             return <WindowMesh key={obj.id} object={obj} color={windowColor} />
+          }
+          if (obj.type === 'custom') {
+            return <CustomMesh key={obj.id} object={obj} />
           }
           /* rooms: walls already rendered from room edges above */
           return null

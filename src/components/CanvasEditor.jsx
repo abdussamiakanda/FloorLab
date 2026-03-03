@@ -14,6 +14,7 @@ import {
   Gauge,
   Grid3X3,
   Keyboard,
+  LayoutGrid,
   Magnet,
   Minus,
   MousePointer2,
@@ -24,6 +25,7 @@ import {
   PanelTop,
   Pencil,
   Redo2,
+  RotateCw,
   Ruler,
   Save,
   Square,
@@ -32,16 +34,23 @@ import {
   Upload,
   X,
 } from 'lucide-react'
+import CustomToolModal from './CustomToolModal'
+import { CUSTOM_TYPES } from './CustomToolModal'
 
 const GRID_SIZE = 24
 const RULER_SIZE = 28
+/** When zoom exceeds this, snap uses half-grid for finer positioning */
+const ZOOM_FRACTIONAL_THRESHOLD = 1.2
+const SNAP_STEP_FRACTIONAL = GRID_SIZE / 5
 
 const DEFAULT_LEGEND_COLORS = {
   wall: '#111827',
   door: '#16a34a',
   window: '#7c3aed',
   room: '#3b82f6',
+  custom: '#64748b',
 }
+
 
 const toRadians = (degrees) => (degrees * Math.PI) / 180
 
@@ -116,6 +125,24 @@ const createRoomObject = (start, end) => {
   }
 }
 
+const createCustomObject = (x, y, customTypeId) => {
+  const def = CUSTOM_TYPES.find((t) => t.id === customTypeId) || CUSTOM_TYPES[0]
+  const width = def.width * GRID_SIZE
+  const height = def.height * GRID_SIZE
+  return {
+    id: crypto.randomUUID(),
+    type: 'custom',
+    customType: customTypeId,
+    name: '',
+    visible: true,
+    x,
+    y,
+    width,
+    height,
+    rotation: 0,
+  }
+}
+
 const pointToWallDistance = (point, wall) => {
   const angle = toRadians(wall.rotation)
   const endX = wall.x + Math.cos(angle) * wall.width
@@ -161,6 +188,7 @@ function CanvasEditor({
   const rulerRightRef = useRef(null)
   const dragStateRef = useRef(null)
   const panStateRef = useRef(null)
+  const panZoomRef = useRef({ pan: { x: 0, y: 0 }, zoom: 1 })
 
   const [gridEnabled, setGridEnabled] = useState(true)
   const [snapEnabled, setSnapEnabled] = useState(true)
@@ -168,6 +196,9 @@ function CanvasEditor({
   const [rulersVisible, setRulersVisible] = useState(true)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
+  useEffect(() => {
+    panZoomRef.current = { pan, zoom }
+  }, [pan, zoom])
   const [wallLengthInput, setWallLengthInput] = useState('')
   const [doorLengthInput, setDoorLengthInput] = useState('')
   const [windowLengthInput, setWindowLengthInput] = useState('')
@@ -184,7 +215,10 @@ function CanvasEditor({
     door: true,
     window: true,
     room: true,
+    custom: true,
   })
+  const [customModalOpen, setCustomModalOpen] = useState(false)
+  const [pendingCustomType, setPendingCustomType] = useState(null)
   const resizeRightRef = useRef(null)
   const editorNav = useEditorNav()
   const sidebarOpen = editorNav?.sidebarOpen ?? true
@@ -224,7 +258,7 @@ function CanvasEditor({
       setWindowLengthInput(String(Math.round((selectedObject.width / GRID_SIZE) * 10) / 10))
       setRoomWidthInput('')
       setRoomHeightInput('')
-    } else if (selectedObject?.type === 'room') {
+    } else if (selectedObject?.type === 'room' || selectedObject?.type === 'custom') {
       setWallLengthInput('')
       setDoorLengthInput('')
       setWindowLengthInput('')
@@ -270,10 +304,10 @@ function CanvasEditor({
   }, [selectedObject, windowLengthInput, updateObject])
 
   const applyRoomDimensions = useCallback(() => {
-    if (selectedObject?.type !== 'room') return
+    if (selectedObject?.type !== 'room' && selectedObject?.type !== 'custom') return
     const w = parseFloat(roomWidthInput)
     const h = parseFloat(roomHeightInput)
-    const minGrid = 2
+    const minGrid = selectedObject?.type === 'room' ? 2 : 0.5
     if (!Number.isNaN(w) && !Number.isNaN(h) && w >= minGrid && h >= minGrid) {
       updateObject(selectedObject.id, { width: w * GRID_SIZE, height: h * GRID_SIZE })
     } else {
@@ -299,8 +333,20 @@ function CanvasEditor({
     duplicateObjectById(selectedObject)
   }, [selectedObject, duplicateObjectById])
 
+  const ROTATE_STEP = 90
+  const handleRotate = useCallback(() => {
+    if (!selectedObject) return
+    const current = Number(selectedObject.rotation) || 0
+    const next = ((current + ROTATE_STEP) % 360 + 360) % 360
+    updateObject(selectedObject.id, { rotation: next })
+  }, [selectedObject, updateObject])
+
   const getObjectDisplayName = (object, index) => {
     const name = (object.name || '').trim()
+    if (object.type === 'custom') {
+      const typeLabel = CUSTOM_TYPES.find((t) => t.id === object.customType)?.label || object.customType || 'Custom'
+      return name || `${typeLabel} ${index + 1}`
+    }
     const typeLabel = object.type.charAt(0).toUpperCase() + object.type.slice(1)
     return name || `${typeLabel} ${index + 1}`
   }
@@ -382,12 +428,23 @@ function CanvasEditor({
   }, [state.objects.length])
 
   const getObjectBounds = (object) => {
-    if (object.type === 'room') {
+    if (object.type === 'room' || object.type === 'custom') {
+      const angle = toRadians(object.rotation || 0)
+      const cos = Math.cos(angle)
+      const sin = Math.sin(angle)
+      const corners = [
+        { x: object.x, y: object.y },
+        { x: object.x + object.width * cos, y: object.y + object.width * sin },
+        { x: object.x + object.width * cos - object.height * sin, y: object.y + object.width * sin + object.height * cos },
+        { x: object.x - object.height * sin, y: object.y + object.height * cos },
+      ]
+      const xs = corners.map((c) => c.x)
+      const ys = corners.map((c) => c.y)
       return {
-        minX: object.x,
-        minY: object.y,
-        maxX: object.x + object.width,
-        maxY: object.y + object.height,
+        minX: Math.min(...xs),
+        minY: Math.min(...ys),
+        maxX: Math.max(...xs),
+        maxY: Math.max(...ys),
       }
     } else {
       // Wall, door, window - account for rotation
@@ -489,10 +546,10 @@ function CanvasEditor({
     if (!snapEnabled) {
       return point
     }
-
+    const step = zoom > ZOOM_FRACTIONAL_THRESHOLD ? SNAP_STEP_FRACTIONAL : GRID_SIZE
     return {
-      x: Math.round(point.x / GRID_SIZE) * GRID_SIZE,
-      y: Math.round(point.y / GRID_SIZE) * GRID_SIZE,
+      x: Math.round(point.x / step) * step,
+      y: Math.round(point.y / step) * step,
     }
   }
 
@@ -517,13 +574,26 @@ function CanvasEditor({
         const angle = toRadians(object.rotation)
         const cos = Math.cos(angle)
         const sin = Math.sin(angle)
-        
+
         const dx = point.x - object.x
         const dy = point.y - object.y
-        
+
         const localX = dx * cos + dy * sin
         const localY = -dx * sin + dy * cos
-        
+
+        if (localX >= 0 && localX <= object.width && localY >= 0 && localY <= object.height) {
+          return object
+        }
+      }
+
+      if (object.type === 'custom') {
+        const angle = toRadians(object.rotation || 0)
+        const cos = Math.cos(angle)
+        const sin = Math.sin(angle)
+        const dx = point.x - object.x
+        const dy = point.y - object.y
+        const localX = dx * cos + dy * sin
+        const localY = -dx * sin + dy * cos
         if (localX >= 0 && localX <= object.width && localY >= 0 && localY <= object.height) {
           return object
         }
@@ -554,25 +624,37 @@ function CanvasEditor({
       context.scale(zoom, zoom)
 
       if (gridEnabled) {
-        context.beginPath()
-        context.strokeStyle = '#e3e7ef'
-        context.lineWidth = 1 / zoom
-
         const startX = Math.floor((-pan.x / zoom) / GRID_SIZE) * GRID_SIZE
         const startY = Math.floor((-pan.y / zoom) / GRID_SIZE) * GRID_SIZE
         const endX = startX + width / zoom + GRID_SIZE
         const endY = startY + height / zoom + GRID_SIZE
 
+        if (zoom > ZOOM_FRACTIONAL_THRESHOLD) {
+          context.beginPath()
+          context.strokeStyle = '#eef2ff'
+          context.lineWidth = 0.5 / zoom
+          for (let x = Math.floor(startX / SNAP_STEP_FRACTIONAL) * SNAP_STEP_FRACTIONAL; x <= endX; x += SNAP_STEP_FRACTIONAL) {
+            context.moveTo(x, startY)
+            context.lineTo(x, endY)
+          }
+          for (let y = Math.floor(startY / SNAP_STEP_FRACTIONAL) * SNAP_STEP_FRACTIONAL; y <= endY; y += SNAP_STEP_FRACTIONAL) {
+            context.moveTo(startX, y)
+            context.lineTo(endX, y)
+          }
+          context.stroke()
+        }
+
+        context.beginPath()
+        context.strokeStyle = '#e3e7ef'
+        context.lineWidth = 1 / zoom
         for (let x = startX; x <= endX; x += GRID_SIZE) {
           context.moveTo(x, startY)
           context.lineTo(x, endY)
         }
-
         for (let y = startY; y <= endY; y += GRID_SIZE) {
           context.moveTo(startX, y)
           context.lineTo(endX, y)
         }
-
         context.stroke()
       }
 
@@ -801,21 +883,23 @@ function CanvasEditor({
           }
         }
         else if (object.type === 'room') {
+          const rot = toRadians(object.rotation || 0)
+          context.save()
+          context.translate(object.x, object.y)
+          context.rotate(rot)
           context.fillStyle = isSelected
             ? legendColors.room + '1a' // ~10% alpha
             : legendColors.room + '0d' // ~5% alpha
-          context.fillRect(object.x, object.y, object.width, object.height)
-
+          context.fillRect(0, 0, object.width, object.height)
           context.strokeStyle = isSelected ? '#f97316' : legendColors.room
           context.lineWidth = 2 / zoom
-          context.strokeRect(object.x, object.y, object.width, object.height)
-
+          context.strokeRect(0, 0, object.width, object.height)
           if (measurementsVisible) {
             const squaresW = Math.round(object.width / GRID_SIZE)
             const squaresH = Math.round(object.height / GRID_SIZE)
             const measurement = `${squaresW}×${squaresH}`
-            const cx = object.x + object.width / 2
-            const cy = object.y + object.height / 2
+            const cx = object.width / 2
+            const cy = object.height / 2
             context.font = `bold ${11 / zoom}px Arial`
             context.textAlign = 'center'
             context.textBaseline = 'middle'
@@ -828,6 +912,23 @@ function CanvasEditor({
             context.fillStyle = legendColors.room
             context.fillText(measurement, cx, cy)
           }
+          context.restore()
+        } else if (object.type === 'custom') {
+          context.save()
+          context.translate(object.x, object.y)
+          context.rotate(toRadians(object.rotation || 0))
+          context.fillStyle = isSelected ? legendColors.custom + '2a' : legendColors.custom + '1a'
+          context.fillRect(0, 0, object.width, object.height)
+          context.strokeStyle = isSelected ? '#f97316' : legendColors.custom
+          context.lineWidth = 2 / zoom
+          context.strokeRect(0, 0, object.width, object.height)
+          const label = CUSTOM_TYPES.find((t) => t.id === object.customType)?.label || object.customType || 'Custom'
+          context.font = `${Math.max(10, 12 / zoom)}px Arial`
+          context.textAlign = 'center'
+          context.textBaseline = 'middle'
+          context.fillStyle = isSelected ? '#f97316' : '#475569'
+          context.fillText(label, object.width / 2, object.height / 2)
+          context.restore()
         }
       })
 
@@ -1041,6 +1142,13 @@ function CanvasEditor({
 
     const hitObject = findObjectAtPoint(worldPoint)
 
+    if (state.selectedTool === 'custom' && pendingCustomType && !hitObject) {
+      const snapped = toSnap(worldPoint)
+      const obj = createCustomObject(snapped.x, snapped.y, pendingCustomType)
+      addObject(obj)
+      return
+    }
+
     if (state.selectedTool === 'delete') {
       if (hitObject) {
         deleteObject(hitObject.id)
@@ -1142,8 +1250,21 @@ function CanvasEditor({
 
   const onWheel = (event) => {
     event.preventDefault()
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const { pan: currentPan, zoom: currentZoom } = panZoomRef.current
+    const rect = canvas.getBoundingClientRect()
+    const screenX = event.clientX - rect.left
+    const screenY = event.clientY - rect.top
     const delta = event.deltaY < 0 ? 1.1 : 0.9
-    setZoom((current) => Math.min(3, Math.max(0.25, current * delta)))
+    const newZoom = Math.min(3, Math.max(0.25, currentZoom * delta))
+    const worldX = (screenX - currentPan.x) / currentZoom
+    const worldY = (screenY - currentPan.y) / currentZoom
+    setPan({
+      x: screenX - worldX * newZoom,
+      y: screenY - worldY * newZoom,
+    })
+    setZoom(newZoom)
   }
 
   // Attach wheel listener with passive: false to allow preventDefault
@@ -1218,6 +1339,11 @@ function CanvasEditor({
         handleDuplicate()
         return
       }
+      if (ctrlOrMeta && e.shiftKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault()
+        handleRotate()
+        return
+      }
 
       switch (e.key.toLowerCase()) {
         case 'v':
@@ -1251,7 +1377,7 @@ function CanvasEditor({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [readOnly, shortcutsModalOpen, state.selectedObjectId, state.wallDraft, undo, redo, onSave, handleDuplicate, setTool, setWallDraft, selectObject, deleteObject])
+  }, [readOnly, shortcutsModalOpen, state.selectedObjectId, state.wallDraft, undo, redo, onSave, handleDuplicate, handleRotate, setTool, setWallDraft, selectObject, deleteObject])
 
   const handleExportPng = () => {
     const canvas = canvasRef.current
@@ -1280,17 +1406,25 @@ function CanvasEditor({
       try {
         const data = JSON.parse(reader.result)
         const raw = Array.isArray(data) ? data : data?.objects ? data.objects : []
-        const normalized = raw.map((obj) => ({
-          id: obj.id && typeof obj.id === 'string' ? obj.id : crypto.randomUUID(),
-          type: ['wall', 'door', 'window', 'room'].includes(obj.type) ? obj.type : 'wall',
-          name: typeof obj.name === 'string' ? obj.name : '',
-          visible: obj.visible !== false,
-          x: Number(obj.x) || 0,
-          y: Number(obj.y) || 0,
-          width: Number(obj.width) || 24,
-          height: Number(obj.height) ?? 6,
-          rotation: Number(obj.rotation) || 0,
-        }))
+        const validTypes = ['wall', 'door', 'window', 'room', 'custom']
+        const validCustomTypes = CUSTOM_TYPES.map((t) => t.id)
+        const normalized = raw.map((obj) => {
+          const type = validTypes.includes(obj.type) ? obj.type : 'wall'
+          const customType = type === 'custom' && validCustomTypes.includes(obj.customType) ? obj.customType : (CUSTOM_TYPES[0]?.id || 'table')
+          const def = type === 'custom' ? CUSTOM_TYPES.find((t) => t.id === customType) || CUSTOM_TYPES[0] : null
+          return {
+            id: obj.id && typeof obj.id === 'string' ? obj.id : crypto.randomUUID(),
+            type,
+            ...(type === 'custom' ? { customType } : {}),
+            name: typeof obj.name === 'string' ? obj.name : '',
+            visible: obj.visible !== false,
+            x: Number(obj.x) || 0,
+            y: Number(obj.y) || 0,
+            width: Number(obj.width) || (def ? def.width * GRID_SIZE : 24),
+            height: Number(obj.height) ?? (def ? def.height * GRID_SIZE : 6),
+            rotation: Number(obj.rotation) || 0,
+          }
+        })
         resetPlan(normalized)
       } catch (err) {
         console.error('Import JSON failed:', err)
@@ -1356,7 +1490,28 @@ function CanvasEditor({
                   {label}
                 </button>
               ))}
+              <button
+                type="button"
+                className={`tool-btn ${state.selectedTool === 'custom' ? 'active' : ''}`}
+                onClick={() => {
+                  if (readOnly) return
+                  setCustomModalOpen(true)
+                }}
+                disabled={readOnly}
+                title="Add custom object (balcony, table, chair, etc.)"
+              >
+                <span className="tool-btn-icon"><LayoutGrid size={16} /></span>
+                Custom
+              </button>
             </div>
+            <CustomToolModal
+              isOpen={customModalOpen}
+              onClose={() => setCustomModalOpen(false)}
+              onSelect={(customTypeId) => {
+                setPendingCustomType(customTypeId)
+                setTool('custom')
+              }}
+            />
 
             <div className="toolbar-group toolbar-group-grid">
               <div className="toolbar-label">Edit</div>
@@ -1377,6 +1532,16 @@ function CanvasEditor({
               >
                 <span className="tool-btn-icon"><Copy size={16} /></span>
                 Duplicate
+              </button>
+              <button
+                type="button"
+                className="tool-btn"
+                onClick={handleRotate}
+                disabled={readOnly || !selectedObject}
+                title="Rotate 90° (Ctrl+Shift+R)"
+              >
+                <span className="tool-btn-icon"><RotateCw size={16} /></span>
+                Rotate
               </button>
               <button type="button" className="tool-btn tool-btn-save" onClick={onSave} disabled={readOnly} title="Save (Ctrl+S)">
                 <span className="tool-btn-icon"><Save size={16} /></span>
@@ -1498,6 +1663,10 @@ function CanvasEditor({
                     <dd><kbd>Ctrl</kbd> + <kbd>D</kbd></dd>
                   </div>
                   <div className="shortcuts-row">
+                    <dt>Rotate selected 90°</dt>
+                    <dd><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd></dd>
+                  </div>
+                  <div className="shortcuts-row">
                     <dt>Select tool</dt>
                     <dd><kbd>V</kbd></dd>
                   </div>
@@ -1589,7 +1758,7 @@ function CanvasEditor({
                 onMouseLeave={onMouseUp}
                 style={{
                   cursor:
-                    state.selectedTool === 'wall' || state.selectedTool === 'door' || state.selectedTool === 'window' || state.selectedTool === 'room'
+                    state.selectedTool === 'wall' || state.selectedTool === 'door' || state.selectedTool === 'window' || state.selectedTool === 'room' || state.selectedTool === 'custom'
                       ? 'crosshair'
                       : 'default',
                 }}
@@ -1649,13 +1818,13 @@ function CanvasEditor({
             </div>
             <div className="objects-list" aria-label="Object list">
               {(() => {
-                const groups = { wall: [], door: [], window: [], room: [] }
+                const groups = { wall: [], door: [], window: [], room: [], custom: [] }
                 state.objects.forEach((obj) => {
                   if (groups[obj.type]) groups[obj.type].push(obj)
                 })
-                const typeOrder = ['room', 'door', 'window', 'wall']
-                const typeLabels = { wall: 'Walls', door: 'Doors', window: 'Windows', room: 'Rooms' }
-                const typeIcons = { wall: Minus, door: DoorOpen, window: PanelTop, room: Square }
+                const typeOrder = ['room', 'door', 'window', 'wall', 'custom']
+                const typeLabels = { wall: 'Walls', door: 'Doors', window: 'Windows', room: 'Rooms', custom: 'Custom' }
+                const typeIcons = { wall: Minus, door: DoorOpen, window: PanelTop, room: Square, custom: LayoutGrid }
                 return typeOrder.map((type) => {
                   const items = groups[type]
                   const expanded = objectGroupExpanded[type]
@@ -1684,7 +1853,9 @@ function CanvasEditor({
                           const isSelected = object.id === state.selectedObjectId
                           const isEditing = editingNameId === object.id
                           const displayName = getObjectDisplayName(object, globalIndex)
-                          const ItemIcon = typeIcons[type]
+                          const ItemIcon = type === 'custom'
+                            ? (CUSTOM_TYPES.find((t) => t.id === object.customType)?.Icon || LayoutGrid)
+                            : typeIcons[type]
                           return (
                             <li
                               key={object.id}
@@ -1838,6 +2009,37 @@ function CanvasEditor({
                                       onBlur={applyRoomDimensions}
                                       onKeyDown={(e) => e.key === 'Enter' && applyRoomDimensions()}
                                       aria-label="Room height in grid units"
+                                    />
+                                  </label>
+                                </div>
+                              )}
+                              {!readOnly && isSelected && object.type === 'custom' && (
+                                <div className="toolbar-group toolbar-group-properties object-list-item-properties">
+                                  <div className="toolbar-label">Custom</div>
+                                  <label className="toolbar-field">
+                                    <span>Width (grid units)</span>
+                                    <input
+                                      type="number"
+                                      min={0.5}
+                                      step={0.1}
+                                      value={roomWidthInput}
+                                      onChange={(e) => setRoomWidthInput(e.target.value)}
+                                      onBlur={applyRoomDimensions}
+                                      onKeyDown={(e) => e.key === 'Enter' && applyRoomDimensions()}
+                                      aria-label="Width in grid units"
+                                    />
+                                  </label>
+                                  <label className="toolbar-field">
+                                    <span>Height (grid units)</span>
+                                    <input
+                                      type="number"
+                                      min={0.5}
+                                      step={0.1}
+                                      value={roomHeightInput}
+                                      onChange={(e) => setRoomHeightInput(e.target.value)}
+                                      onBlur={applyRoomDimensions}
+                                      onKeyDown={(e) => e.key === 'Enter' && applyRoomDimensions()}
+                                      aria-label="Height in grid units"
                                     />
                                   </label>
                                 </div>

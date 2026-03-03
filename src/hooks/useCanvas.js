@@ -4,7 +4,7 @@ const MAX_HISTORY = 50
 
 const initialState = {
   objects: [],
-  selectedTool: 'wall',
+  selectedTool: 'select',
   selectedObjectId: null,
   wallDraft: null,
   history: [[]],
