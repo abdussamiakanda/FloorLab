@@ -27,7 +27,6 @@ import {
   Redo2,
   RotateCw,
   FlipHorizontal,
-  FlipVertical,
   Ruler,
   Save,
   Square,
@@ -221,8 +220,6 @@ function CanvasEditor({
   })
   const [customModalOpen, setCustomModalOpen] = useState(false)
   const [pendingCustomType, setPendingCustomType] = useState(null)
-  const [mirrorMenuOpen, setMirrorMenuOpen] = useState(false)
-  const mirrorMenuRef = useRef(null)
   const resizeRightRef = useRef(null)
   const editorNav = useEditorNav()
   const sidebarOpen = editorNav?.sidebarOpen ?? true
@@ -345,20 +342,6 @@ function CanvasEditor({
     updateObject(selectedObject.id, { rotation: next })
   }, [selectedObject, updateObject])
 
-  const handleMirrorX = useCallback(() => {
-    if (!selectedObject) return
-    const current = Number(selectedObject.rotation) || 0
-    const next = (((180 - current) % 360) + 360) % 360
-    updateObject(selectedObject.id, { rotation: next })
-  }, [selectedObject, updateObject])
-
-  const handleMirrorY = useCallback(() => {
-    if (!selectedObject) return
-    const current = Number(selectedObject.rotation) || 0
-    const next = ((-current % 360) + 360) % 360
-    updateObject(selectedObject.id, { rotation: next })
-  }, [selectedObject, updateObject])
-
   const getObjectDisplayName = (object, index) => {
     const name = (object.name || '').trim()
     if (object.type === 'custom') {
@@ -444,15 +427,6 @@ function CanvasEditor({
       setTimeout(() => fitToView(), 0) // Defer to ensure canvas dimensions are ready
     }
   }, [state.objects.length])
-
-  useEffect(() => {
-    if (!mirrorMenuOpen) return
-    const onDocClick = (e) => {
-      if (mirrorMenuRef.current && !mirrorMenuRef.current.contains(e.target)) setMirrorMenuOpen(false)
-    }
-    document.addEventListener('mousedown', onDocClick)
-    return () => document.removeEventListener('mousedown', onDocClick)
-  }, [mirrorMenuOpen])
 
   const getObjectBounds = (object) => {
     if (object.type === 'room' || object.type === 'custom') {
@@ -773,17 +747,12 @@ function CanvasEditor({
           context.lineTo(endX, endY)
           context.stroke()
 
-          // Draw door arc (swing = knob side; same rule as 3D: [0,180) one side, [180,360) other)
+          // Draw door arc
           context.beginPath()
           context.strokeStyle = isSelected ? '#f97316' : legendColors.door
           context.lineWidth = 2 / zoom
           const arcRadius = 15
-          const rotNorm = ((Number(object.rotation) % 360) + 360) % 360
-          if (rotNorm < 180) {
-            context.arc(object.x, object.y, arcRadius, angle, angle + Math.PI / 4, false)
-          } else {
-            context.arc(object.x, object.y, arcRadius, angle, angle - Math.PI / 4, true)
-          }
+          context.arc(object.x, object.y, arcRadius, angle, angle + Math.PI / 4, false)
           context.stroke()
 
           if (measurementsVisible) {
@@ -1576,29 +1545,6 @@ function CanvasEditor({
                 <span className="tool-btn-icon"><RotateCw size={16} /></span>
                 Rotate
               </button>
-              <div className="tool-mirror-wrap" ref={mirrorMenuRef}>
-                <button
-                  type="button"
-                  className="tool-btn"
-                  onClick={() => setMirrorMenuOpen((o) => !o)}
-                  disabled={readOnly || !selectedObject || selectedObject.type !== 'door'}
-                  title="Mirror (doors only)"
-                >
-                  <span className="tool-btn-icon"><FlipHorizontal size={16} /></span>
-                  Mirror
-                  <ChevronDown size={14} className="tool-mirror-chevron" />
-                </button>
-                {mirrorMenuOpen && (
-                  <div className="tool-mirror-menu">
-                    <button type="button" className="tool-mirror-option" onClick={() => { handleMirrorX(); setMirrorMenuOpen(false); }} title="Mirror along X axis">
-                      <FlipHorizontal size={14} /> X axis
-                    </button>
-                    <button type="button" className="tool-mirror-option" onClick={() => { handleMirrorY(); setMirrorMenuOpen(false); }} title="Mirror along Y axis">
-                      <FlipVertical size={14} /> Y axis
-                    </button>
-                  </div>
-                )}
-              </div>
               <button type="button" className="tool-btn tool-btn-save" onClick={onSave} disabled={readOnly} title="Save (Ctrl+S)">
                 <span className="tool-btn-icon"><Save size={16} /></span>
                 Save

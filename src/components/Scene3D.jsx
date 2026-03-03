@@ -238,14 +238,9 @@ function DoorMesh({ object, color }) {
     [width],
   )
 
+  const knobX = width / 2 - DOOR_KNOB_OFFSET_FROM_EDGE
   const knobY = (DOOR_HEIGHT * DOOR_KNOB_HEIGHT_RATIO) - DOOR_HEIGHT / 2
-  /* Match 2D arc. XY-plane doors (90/270°) are correct; ZY-plane doors (0/180°) need flip */
-  const rotNorm = ((Number(rotation) % 360) + 360) % 360
-  const arcSide = rotNorm < 180 ? 1 : -1
-  const isZYPlane = Math.abs(Math.cos(angle)) >= Math.abs(Math.sin(angle))
-  const knobSide = isZYPlane ? -arcSide : arcSide
-  const knobX = isZYPlane ? -width / 2 + DOOR_KNOB_OFFSET_FROM_EDGE : width / 2 - DOOR_KNOB_OFFSET_FROM_EDGE
-  const knobZ = knobSide * (DOOR_THICKNESS / 2 + DOOR_KNOB_RADIUS)
+  const knobZ = DOOR_THICKNESS / 2 + DOOR_KNOB_RADIUS
 
   return (
     <group position={[posX, posY + DOOR_HEIGHT / 2, posZ]} rotation={[0, -angle, 0]}>
@@ -257,6 +252,10 @@ function DoorMesh({ object, color }) {
         <lineBasicMaterial color={WALL_EDGE_COLOR} />
       </lineSegments>
       <mesh position={[knobX, knobY, knobZ]} castShadow receiveShadow>
+        <sphereGeometry args={[DOOR_KNOB_RADIUS, 12, 10]} />
+        <meshStandardMaterial color={DOOR_KNOB_COLOR} />
+      </mesh>
+      <mesh position={[knobX, knobY, -knobZ]} castShadow receiveShadow>
         <sphereGeometry args={[DOOR_KNOB_RADIUS, 12, 10]} />
         <meshStandardMaterial color={DOOR_KNOB_COLOR} />
       </mesh>
