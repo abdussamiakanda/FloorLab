@@ -40,7 +40,9 @@ export function useFirestore() {
     loading,
     error,
     fetchFloorPlans: () =>
-      withGuard((u) => listFloorPlans(u.uid, u.email || '')),
+      withGuard((u) =>
+        listFloorPlans(u.uid, (u.email || '').trim().toLowerCase()),
+      ),
     createPlan: (name) =>
       withGuard((u) =>
         createFloorPlan(u.uid, name, u.displayName ?? '', u.email ?? ''),

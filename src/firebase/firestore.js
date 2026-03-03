@@ -36,25 +36,27 @@ export const ensureUserProfile = async (user) => {
 }
 
 export const listFloorPlans = async (uid, userEmail) => {
+  const normalizedEmail = (userEmail || '').trim().toLowerCase()
+
   const ownedQuery = query(
     floorplansColRef(),
     where('createdBy', '==', uid),
     orderBy('updatedAt', 'desc')
   )
-  const sharedQuery = query(
-    floorplansColRef(),
-    where('collaboratorEmails', 'array-contains', userEmail),
-    orderBy('updatedAt', 'desc')
-  )
 
-  const [ownedSnap, sharedSnap] = await Promise.all([
-    getDocs(ownedQuery),
-    getDocs(sharedQuery),
-  ])
-
+  const ownedSnap = await getDocs(ownedQuery)
   const byId = new Map()
   ownedSnap.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() }))
-  sharedSnap.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() }))
+
+  if (normalizedEmail) {
+    const sharedQuery = query(
+      floorplansColRef(),
+      where('collaboratorEmails', 'array-contains', normalizedEmail),
+      orderBy('updatedAt', 'desc')
+    )
+    const sharedSnap = await getDocs(sharedQuery)
+    sharedSnap.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() }))
+  }
 
   return Array.from(byId.values()).sort(
     (a, b) => (b.updatedAt?.toMillis?.() ?? 0) - (a.updatedAt?.toMillis?.() ?? 0)

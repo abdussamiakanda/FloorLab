@@ -71,64 +71,68 @@ function FloorPlanList({ plans, plansLoaded, user, onOpen, onRename, onDelete, o
                 )}
               </div>
               <div className="plan-item-actions" ref={menuRef}>
-                <button
-                  type="button"
-                  className="plan-menu-trigger"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setOpenMenuId(menuOpen ? null : plan.id)
-                  }}
-                  aria-haspopup="true"
-                  aria-expanded={menuOpen}
-                  aria-label="Plan options"
-                >
-                  <MoreVertical size={20} />
-                </button>
-                {menuOpen && (
-                  <div className="plan-dropdown">
-                    {canRename && (
-                      <button
-                        type="button"
-                        className="plan-dropdown-item"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setOpenMenuId(null)
-                          onRename(plan)
-                        }}
-                      >
-                        <Pencil size={16} />
-                        Rename
-                      </button>
+                {role === 'owner' && (
+                  <>
+                    <button
+                      type="button"
+                      className="plan-menu-trigger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setOpenMenuId(menuOpen ? null : plan.id)
+                      }}
+                      aria-haspopup="true"
+                      aria-expanded={menuOpen}
+                      aria-label="Plan options"
+                    >
+                      <MoreVertical size={20} />
+                    </button>
+                    {menuOpen && (
+                      <div className="plan-dropdown">
+                        {canRename && (
+                          <button
+                            type="button"
+                            className="plan-dropdown-item"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenMenuId(null)
+                              onRename(plan)
+                            }}
+                          >
+                            <Pencil size={16} />
+                            Rename
+                          </button>
+                        )}
+                        {canShare && (
+                          <button
+                            type="button"
+                            className="plan-dropdown-item"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenMenuId(null)
+                              onShareClick(plan)
+                            }}
+                          >
+                            <Share2 size={16} />
+                            Share
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            className="plan-dropdown-item plan-dropdown-item-danger"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenMenuId(null)
+                              onDelete(plan.id)
+                            }}
+                          >
+                            <Trash2 size={16} />
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     )}
-                    {canShare && (
-                      <button
-                        type="button"
-                        className="plan-dropdown-item"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setOpenMenuId(null)
-                          onShareClick(plan)
-                        }}
-                      >
-                        <Share2 size={16} />
-                        Share
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        type="button"
-                        className="plan-dropdown-item plan-dropdown-item-danger"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setOpenMenuId(null)
-                          onDelete(plan.id)
-                        }}
-                      >
-                        <Trash2 size={16} />
-                        Delete
-                      </button>
-                    )}
-                  </div>
+                  </>
                 )}
               </div>
             </div>

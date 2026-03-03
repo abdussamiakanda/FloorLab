@@ -1,5 +1,8 @@
 rules_version = '2';
 
+// Collaborator emails are stored in lowercase (see firestore.js shareFloorPlan).
+// request.auth.token.email from Google Sign-In is typically lowercase; if not, sharing may need to match.
+
 service cloud.firestore {
   match /databases/{database}/documents {
     // User profiles: signed-in users can read/write their own profile
@@ -7,22 +10,21 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Floor plans: any signed-in user can create; only owner and collaborators can read/edit; only owner can delete
+    // Floor plans: create = any signed-in user; read/update = owner or collaborator; delete = owner only
     match /floorplans/{planId} {
       allow create: if request.auth != null;
       allow read: if request.auth != null
         && (resource.data.get('createdBy', '') == request.auth.uid
             || resource.data.get('ownerEmail', '') == request.auth.token.email
-            || request.auth.token.email in resource.data.get('collaborators', {})
             || request.auth.token.email in resource.data.get('collaboratorEmails', []));
       allow update: if request.auth != null
-        && (resource.data.get('ownerEmail', '') == request.auth.token.email
-            || resource.data.get('createdBy', '') == request.auth.uid
-            || (request.auth.token.email in resource.data.get('collaborators', {})
-                && resource.data.get('collaborators', {})[request.auth.token.email] == 'editor'));
+        && (resource.data.get('createdBy', '') == request.auth.uid
+            || resource.data.get('ownerEmail', '') == request.auth.token.email
+            || (request.auth.token.email in resource.data.get('collaboratorEmails', [])
+                && resource.data.get('collaborators', {}).get(request.auth.token.email, '') == 'editor'));
       allow delete: if request.auth != null
-        && (resource.data.get('ownerEmail', '') == request.auth.token.email
-            || resource.data.get('createdBy', '') == request.auth.uid);
+        && (resource.data.get('createdBy', '') == request.auth.uid
+            || resource.data.get('ownerEmail', '') == request.auth.token.email);
     }
   }
 }
