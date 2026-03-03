@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { FileText, MoreVertical, Pencil, Trash2, Share2 } from 'lucide-react'
+import { FileText, MoreVertical, Pencil, Trash2, Share2, UserPen } from 'lucide-react'
+import PlanThumbnail from './PlanThumbnail'
 
 function FloorPlanList({ plans, plansLoaded, user, onOpen, onRename, onDelete, onShareClick }) {
   const [openMenuId, setOpenMenuId] = useState(null)
@@ -59,18 +60,20 @@ function FloorPlanList({ plans, plansLoaded, user, onOpen, onRename, onDelete, o
               tabIndex={0}
               aria-label={`Open ${plan.name}`}
             >
-              <div className="plan-info">
-                <h3>{plan.name}</h3>
-                {plan.createdByName && (
-                  <span className="plan-creator">{plan.createdByName}</span>
-                )}
-                {role !== 'owner' && (
-                  <span className="plan-role-badge">
-                    {role === 'editor' ? 'Can edit' : 'Can view'}
-                  </span>
-                )}
+              <div className="plan-thumbnail-wrap">
+                <PlanThumbnail objects={plan.objects} />
               </div>
-              <div className="plan-item-actions" ref={menuRef}>
+              <div className="plan-item-bottom">
+                <div className="plan-info">
+                  <h3>{plan.name}</h3>
+                  {plan.createdByName && (
+                    <span className="plan-creator">
+                      <UserPen size={14} aria-hidden />
+                      {plan.createdByName}
+                    </span>
+                  )}
+                </div>
+                <div className="plan-item-actions" ref={menuRef}>
                 {role === 'owner' && (
                   <>
                     <button
@@ -134,6 +137,7 @@ function FloorPlanList({ plans, plansLoaded, user, onOpen, onRename, onDelete, o
                     )}
                   </>
                 )}
+                </div>
               </div>
             </div>
           </li>
