@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
-import { BoxGeometry, BufferGeometry, CylinderGeometry, DoubleSide, EdgesGeometry, SphereGeometry, Vector3 } from 'three'
+import { BoxGeometry, BufferAttribute, BufferGeometry, CylinderGeometry, DoubleSide, EdgesGeometry, SphereGeometry, Vector3 } from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html, OrbitControls } from '@react-three/drei'
 
 const FLOOR_COLOR = '#e3e3c8'
+const FLOOR_THICKNESS = 15
 const WALL_FACE_COLOR = '#f0f0e9'
 const WALL_EDGE_COLOR = '#363631'
 const WALL_HEIGHT = 200
@@ -195,8 +196,35 @@ export function getPlanBounds(objects) {
   }
 }
 
+/**
+ * Box edges for wall: X = length, Y = height, Z = thickness. Start face at x=-w/2, end face at x=+w/2.
+ * Optionally omit the 4 edges on start and/or end face when they meet another wall.
+ */
+function boxEdgesGeometry(w, h, t, hideStartFace, hideEndFace) {
+  const hw = w / 2
+  const hh = h / 2
+  const ht = t / 2
+  const v = (x, y, z) => [x, y, z]
+  const verts = [
+    v(-hw, -hh, -ht), v(hw, -hh, -ht), v(hw, hh, -ht), v(-hw, hh, -ht),
+    v(-hw, -hh, ht), v(hw, -hh, ht), v(hw, hh, ht), v(-hw, hh, ht),
+  ]
+  const seg = (a, b) => [...verts[a], ...verts[b]]
+  const startFace = [seg(0, 3), seg(3, 7), seg(7, 4), seg(4, 0)]
+  const endFace = [seg(1, 2), seg(2, 6), seg(6, 5), seg(5, 1)]
+  const lengthEdges = [seg(0, 1), seg(3, 2), seg(7, 6), seg(4, 5)]
+  const edges = [...lengthEdges]
+  if (!hideStartFace) edges.push(...startFace)
+  if (!hideEndFace) edges.push(...endFace)
+  const pos = new Float32Array(edges.length * 6)
+  edges.forEach((e, i) => pos.set(e, i * 6))
+  const geo = new BufferGeometry()
+  geo.setAttribute('position', new BufferAttribute(pos, 3))
+  return geo
+}
+
 function WallMesh({ object, color, thickness = WALL_THICKNESS, height = WALL_HEIGHT }) {
-  const { x, y, width, rotation, yMin, yMax } = object
+  const { x, y, width, rotation, yMin, yMax, hideEdgeAtStart, hideEdgeAtEnd } = object
   const angle = toRadians(rotation)
   const cx = x + (Math.cos(angle) * width) / 2
   const cy = y + (Math.sin(angle) * width) / 2
@@ -207,10 +235,14 @@ function WallMesh({ object, color, thickness = WALL_THICKNESS, height = WALL_HEI
   const boxCenterY = useVerticalSlice ? (yMin + yMax) / 2 - WALL_HEIGHT / 2 : 0
 
   const boxArgs = useMemo(() => [width, boxHeight, thickness], [width, boxHeight, thickness])
-  const edgesGeometry = useMemo(
-    () => new EdgesGeometry(new BoxGeometry(width, boxHeight, thickness)),
-    [width, boxHeight, thickness],
-  )
+  const edgesGeometry = useMemo(() => {
+    const hideStart = hideEdgeAtStart === true
+    const hideEnd = hideEdgeAtEnd === true
+    if (hideStart || hideEnd) {
+      return boxEdgesGeometry(width, boxHeight, thickness, hideStart, hideEnd)
+    }
+    return new EdgesGeometry(new BoxGeometry(width, boxHeight, thickness))
+  }, [width, boxHeight, thickness, hideEdgeAtStart, hideEdgeAtEnd])
 
   return (
     <group position={[posX, posY + WALL_HEIGHT / 2, posZ]} rotation={[0, -angle, 0]}>
@@ -680,6 +712,76 @@ function CustomMesh({ object }) {
   )
 }
 
+const JUNCTION_TOLERANCE = 1.5
+
+/**
+ * At corner junctions (walls meeting at an angle), extend each wall so the outer
+ * faces meet at the junction (walls meet at outer ends). Only when another segment
+ * meets at an angle (not parallel). Endpoints must match within tolerance.
+ */
+function applyWallJunctionSnapping(segments, thickness) {
+  const half = thickness / 2
+  const tol = JUNCTION_TOLERANCE
+  const getEndpoints = (s) => {
+    const r = toRadians(s.rotation)
+    const cos = Math.cos(r)
+    const sin = Math.sin(r)
+    return {
+      start: [s.x, s.y],
+      end: [s.x + s.width * cos, s.y + s.width * sin],
+    }
+  }
+  const isParallel = (rot1, rot2) => {
+    const d = Math.abs((normDeg(rot1) - normDeg(rot2) + 180) % 180)
+    return d < 2 || d > 178
+  }
+  const hasCornerAt = (px, py, segIdx, segRotation, segs) => {
+    for (let i = 0; i < segs.length; i++) {
+      if (i === segIdx) continue
+      const s = segs[i]
+      const { start, end } = getEndpoints(s)
+      const atStart = Math.hypot(px - start[0], py - start[1]) < tol
+      const atEnd = Math.hypot(px - end[0], py - end[1]) < tol
+      if (!atStart && !atEnd) continue
+      if (!isParallel(segRotation, s.rotation)) return true
+    }
+    return false
+  }
+  const meetsAt = (px, py, excludeIdx, segs) => {
+    for (let i = 0; i < segs.length; i++) {
+      if (i === excludeIdx) continue
+      const { start, end } = getEndpoints(segs[i])
+      if (Math.hypot(px - start[0], py - start[1]) < tol) return true
+      if (Math.hypot(px - end[0], py - end[1]) < tol) return true
+    }
+    return false
+  }
+  return segments.map((seg, idx) => {
+    const r = toRadians(seg.rotation)
+    const cos = Math.cos(r)
+    const sin = Math.sin(r)
+    const startX = seg.x
+    const startY = seg.y
+    const endX = seg.x + seg.width * cos
+    const endY = seg.y + seg.width * sin
+    const extendStart = hasCornerAt(startX, startY, idx, seg.rotation, segments)
+    const extendEnd = hasCornerAt(endX, endY, idx, seg.rotation, segments)
+    const hideEdgeAtStart = meetsAt(startX, startY, idx, segments)
+    const hideEdgeAtEnd = meetsAt(endX, endY, idx, segments)
+    let x = seg.x
+    let y = seg.y
+    let width = seg.width
+    if (extendStart) {
+      x = seg.x - half * cos
+      y = seg.y - half * sin
+      width += half
+    }
+    if (extendEnd) width += half
+    if (width < 1e-6) return null
+    return { ...seg, x, y, width, hideEdgeAtStart, hideEdgeAtEnd }
+  }).filter(Boolean)
+}
+
 /** Returns 4 wall segments (x, y, width, rotation) for a room's edges */
 function getRoomWalls(room) {
   const { x, y, width, height, rotation = 0 } = room
@@ -883,25 +985,25 @@ function FloorPlanScene({ objects, colors, center, floorSize, cameraRef }) {
       })
   }, [visible, openings])
 
+  const allWallSegmentsSnapped = useMemo(() => {
+    const all = [...roomWallSegmentsWithCutouts, ...standaloneWallSegmentsWithCutouts]
+    return applyWallJunctionSnapping(all, WALL_THICKNESS)
+  }, [roomWallSegmentsWithCutouts, standaloneWallSegmentsWithCutouts])
+
   return (
     <>
       <ambientLight intensity={0.6} />
       <directionalLight position={[20, 30, 20]} intensity={0.8} castShadow />
       <directionalLight position={[-20, 20, -20]} intensity={0.3} />
       <group scale={[1, 1, -1]}>
-        {/* Floor plan floor – negate Z so after mirror it aligns with walls */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[target[0], 0, -target[2]]}>
-          <planeGeometry args={[floorExtent, floorExtent]} />
-          <meshStandardMaterial color={FLOOR_COLOR} side={DoubleSide} />
+        {/* Floor slab – thickness downward, top at y=0 */}
+        <mesh position={[target[0], -FLOOR_THICKNESS / 2, -target[2]]} castShadow receiveShadow>
+          <boxGeometry args={[floorExtent, FLOOR_THICKNESS, floorExtent]} />
+          <meshStandardMaterial color={FLOOR_COLOR} />
         </mesh>
 
-        {/* Walls from room boundaries (with window/door cutouts) */}
-        {roomWallSegmentsWithCutouts.map((seg) => (
-          <WallMesh key={seg.key} object={seg} color={WALL_FACE_COLOR} />
-        ))}
-
-        {/* Standalone walls (with window/door cutouts) */}
-        {standaloneWallSegmentsWithCutouts.map((seg) => (
+        {/* All walls (room + standalone, with cutouts and junction snapping) */}
+        {allWallSegmentsSnapped.map((seg) => (
           <WallMesh key={seg.key} object={seg} color={WALL_FACE_COLOR} />
         ))}
 
