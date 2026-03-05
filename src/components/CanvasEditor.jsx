@@ -40,9 +40,13 @@ import { CUSTOM_TYPES } from './CustomToolModal'
 
 const GRID_SIZE = 24
 const RULER_SIZE = 28
+const MEASUREMENT_STEP = 0.2
 /** When zoom exceeds this, snap uses half-grid for finer positioning */
 const ZOOM_FRACTIONAL_THRESHOLD = 1.2
 const SNAP_STEP_FRACTIONAL = GRID_SIZE / 5
+
+const roundToStep = (value, step) => Math.round(value / step) * step
+const formatMeasurement = (value) => (value % 1 === 0 ? String(Math.round(value)) : value.toFixed(1))
 
 const DEFAULT_LEGEND_COLORS = {
   wall: '#111827',
@@ -239,32 +243,35 @@ function CanvasEditor({
     ? state.objects.find((o) => o.id === state.selectedObjectId) ?? null
     : null
 
-  // Sync measurement inputs when selection changes (grid units = px / GRID_SIZE)
+  const toGridUnits = (px) => roundToStep(px / GRID_SIZE, MEASUREMENT_STEP)
+  const toDisplayMeasurement = (px) => formatMeasurement(px / GRID_SIZE)
+
+  // Sync measurement inputs when selection changes (grid units = px / GRID_SIZE, step 0.2)
   useEffect(() => {
     if (selectedObject?.type === 'wall') {
-      setWallLengthInput(String(Math.round((selectedObject.width / GRID_SIZE) * 10) / 10))
+      setWallLengthInput(formatMeasurement(toGridUnits(selectedObject.width)))
       setDoorLengthInput('')
       setWindowLengthInput('')
       setRoomWidthInput('')
       setRoomHeightInput('')
     } else if (selectedObject?.type === 'door') {
       setWallLengthInput('')
-      setDoorLengthInput(String(Math.round((selectedObject.width / GRID_SIZE) * 10) / 10))
+      setDoorLengthInput(formatMeasurement(toGridUnits(selectedObject.width)))
       setWindowLengthInput('')
       setRoomWidthInput('')
       setRoomHeightInput('')
     } else if (selectedObject?.type === 'window') {
       setWallLengthInput('')
       setDoorLengthInput('')
-      setWindowLengthInput(String(Math.round((selectedObject.width / GRID_SIZE) * 10) / 10))
+      setWindowLengthInput(formatMeasurement(toGridUnits(selectedObject.width)))
       setRoomWidthInput('')
       setRoomHeightInput('')
     } else if (selectedObject?.type === 'room' || selectedObject?.type === 'custom') {
       setWallLengthInput('')
       setDoorLengthInput('')
       setWindowLengthInput('')
-      setRoomWidthInput(String(Math.round((selectedObject.width / GRID_SIZE) * 10) / 10))
-      setRoomHeightInput(String(Math.round((selectedObject.height / GRID_SIZE) * 10) / 10))
+      setRoomWidthInput(formatMeasurement(toGridUnits(selectedObject.width)))
+      setRoomHeightInput(formatMeasurement(toGridUnits(selectedObject.height)))
     } else {
       setWallLengthInput('')
       setDoorLengthInput('')
@@ -276,44 +283,49 @@ function CanvasEditor({
 
   const applyWallLength = useCallback(() => {
     if (selectedObject?.type !== 'wall') return
-    const measurement = parseFloat(wallLengthInput)
-    if (!Number.isNaN(measurement) && measurement >= 1) {
+    const parsed = parseFloat(wallLengthInput)
+    const measurement = !Number.isNaN(parsed) ? roundToStep(parsed, MEASUREMENT_STEP) : null
+    if (measurement != null && measurement >= MEASUREMENT_STEP) {
       updateObject(selectedObject.id, { width: measurement * GRID_SIZE })
     } else {
-      setWallLengthInput(String(Math.round((selectedObject.width / GRID_SIZE) * 10) / 10))
+      setWallLengthInput(formatMeasurement(toGridUnits(selectedObject.width)))
     }
   }, [selectedObject, wallLengthInput, updateObject])
 
   const applyDoorLength = useCallback(() => {
     if (selectedObject?.type !== 'door') return
-    const measurement = parseFloat(doorLengthInput)
-    if (!Number.isNaN(measurement) && measurement >= 1) {
+    const parsed = parseFloat(doorLengthInput)
+    const measurement = !Number.isNaN(parsed) ? roundToStep(parsed, MEASUREMENT_STEP) : null
+    if (measurement != null && measurement >= MEASUREMENT_STEP) {
       updateObject(selectedObject.id, { width: measurement * GRID_SIZE })
     } else {
-      setDoorLengthInput(String(Math.round((selectedObject.width / GRID_SIZE) * 10) / 10))
+      setDoorLengthInput(formatMeasurement(toGridUnits(selectedObject.width)))
     }
   }, [selectedObject, doorLengthInput, updateObject])
 
   const applyWindowLength = useCallback(() => {
     if (selectedObject?.type !== 'window') return
-    const measurement = parseFloat(windowLengthInput)
-    if (!Number.isNaN(measurement) && measurement >= 1) {
+    const parsed = parseFloat(windowLengthInput)
+    const measurement = !Number.isNaN(parsed) ? roundToStep(parsed, MEASUREMENT_STEP) : null
+    if (measurement != null && measurement >= MEASUREMENT_STEP) {
       updateObject(selectedObject.id, { width: measurement * GRID_SIZE })
     } else {
-      setWindowLengthInput(String(Math.round((selectedObject.width / GRID_SIZE) * 10) / 10))
+      setWindowLengthInput(formatMeasurement(toGridUnits(selectedObject.width)))
     }
   }, [selectedObject, windowLengthInput, updateObject])
 
   const applyRoomDimensions = useCallback(() => {
     if (selectedObject?.type !== 'room' && selectedObject?.type !== 'custom') return
-    const w = parseFloat(roomWidthInput)
-    const h = parseFloat(roomHeightInput)
+    const wParsed = parseFloat(roomWidthInput)
+    const hParsed = parseFloat(roomHeightInput)
+    const w = !Number.isNaN(wParsed) ? roundToStep(wParsed, MEASUREMENT_STEP) : null
+    const h = !Number.isNaN(hParsed) ? roundToStep(hParsed, MEASUREMENT_STEP) : null
     const minGrid = selectedObject?.type === 'room' ? 2 : 0.5
-    if (!Number.isNaN(w) && !Number.isNaN(h) && w >= minGrid && h >= minGrid) {
+    if (w != null && h != null && w >= minGrid && h >= minGrid) {
       updateObject(selectedObject.id, { width: w * GRID_SIZE, height: h * GRID_SIZE })
     } else {
-      setRoomWidthInput(String(Math.round((selectedObject.width / GRID_SIZE) * 10) / 10))
-      setRoomHeightInput(String(Math.round((selectedObject.height / GRID_SIZE) * 10) / 10))
+      setRoomWidthInput(formatMeasurement(toGridUnits(selectedObject.width)))
+      setRoomHeightInput(formatMeasurement(toGridUnits(selectedObject.height)))
     }
   }, [selectedObject, roomWidthInput, roomHeightInput, updateObject])
 
@@ -686,8 +698,7 @@ function CanvasEditor({
           if (measurementsVisible) {
             const midX = (object.x + endX) / 2
             const midY = (object.y + endY) / 2
-            const squareCount = Math.round(object.width / GRID_SIZE)
-            const measurement = `${squareCount}`
+            const measurement = formatMeasurement(roundToStep(object.width / GRID_SIZE, MEASUREMENT_STEP))
             const perpAngle = toRadians(object.rotation + 90)
             const lineOffset = 16 / zoom
             const lineLength = 5 / zoom
@@ -758,7 +769,7 @@ function CanvasEditor({
           if (measurementsVisible) {
             const midX = (object.x + endX) / 2
             const midY = (object.y + endY) / 2
-            const squareCount = Math.round(object.width / GRID_SIZE)
+            const measurement = formatMeasurement(roundToStep(object.width / GRID_SIZE, MEASUREMENT_STEP))
             const perpAngle = toRadians(object.rotation + 90)
             const lineOffset = 16 / zoom
             const lineLength = 5 / zoom
@@ -794,14 +805,14 @@ function CanvasEditor({
             context.font = `bold ${11 / zoom}px Arial`
             context.textAlign = 'center'
             context.textBaseline = 'middle'
-            const m1 = context.measureText(`${squareCount}`)
+            const m1 = context.measureText(measurement)
             const pad1 = 4 / zoom
             const w1 = m1.width + 2 * pad1
             const h1 = 11 / zoom + 2 * pad1
             context.fillStyle = '#ffffff'
             context.fillRect(-w1 / 2, -h1 / 2, w1, h1)
             context.fillStyle = '#15803d'
-            context.fillText(`${squareCount}`, 0, 0)
+            context.fillText(measurement, 0, 0)
             context.restore()
           }
         }
@@ -836,7 +847,7 @@ function CanvasEditor({
           if (measurementsVisible) {
             const midX = (object.x + endX) / 2
             const midY = (object.y + endY) / 2
-            const squareCount = Math.round(object.width / GRID_SIZE)
+            const measurement = formatMeasurement(roundToStep(object.width / GRID_SIZE, MEASUREMENT_STEP))
             const perpAngle = toRadians(object.rotation + 90)
             const lineOffset = 16 / zoom
             const lineLength = 5 / zoom
@@ -872,14 +883,14 @@ function CanvasEditor({
             context.font = `bold ${11 / zoom}px Arial`
             context.textAlign = 'center'
             context.textBaseline = 'middle'
-            const m2 = context.measureText(`${squareCount}`)
+            const m2 = context.measureText(measurement)
             const pad2 = 4 / zoom
             const w2 = m2.width + 2 * pad2
             const h2 = 11 / zoom + 2 * pad2
             context.fillStyle = '#ffffff'
             context.fillRect(-w2 / 2, -h2 / 2, w2, h2)
             context.fillStyle = '#6d28d9'
-            context.fillText(`${squareCount}`, 0, 0)
+            context.fillText(measurement, 0, 0)
             context.restore()
           }
         }
@@ -896,8 +907,8 @@ function CanvasEditor({
           context.lineWidth = 2 / zoom
           context.strokeRect(0, 0, object.width, object.height)
           if (measurementsVisible) {
-            const squaresW = Math.round(object.width / GRID_SIZE)
-            const squaresH = Math.round(object.height / GRID_SIZE)
+            const squaresW = formatMeasurement(roundToStep(object.width / GRID_SIZE, MEASUREMENT_STEP))
+            const squaresH = formatMeasurement(roundToStep(object.height / GRID_SIZE, MEASUREMENT_STEP))
             const measurement = `${squaresW}×${squaresH}`
             const cx = object.width / 2
             const cy = object.height / 2
@@ -1938,8 +1949,8 @@ function CanvasEditor({
                                     <span>Length (grid units)</span>
                                     <input
                                       type="number"
-                                      min={1}
-                                      step={0.5}
+                                      min={0.2}
+                                      step={0.2}
                                       value={wallLengthInput}
                                       onChange={(e) => setWallLengthInput(e.target.value)}
                                       onBlur={applyWallLength}
@@ -1956,8 +1967,8 @@ function CanvasEditor({
                                     <span>Length (grid units)</span>
                                     <input
                                       type="number"
-                                      min={1}
-                                      step={0.5}
+                                      min={0.2}
+                                      step={0.2}
                                       value={doorLengthInput}
                                       onChange={(e) => setDoorLengthInput(e.target.value)}
                                       onBlur={applyDoorLength}
@@ -1974,8 +1985,8 @@ function CanvasEditor({
                                     <span>Length (grid units)</span>
                                     <input
                                       type="number"
-                                      min={1}
-                                      step={0.5}
+                                      min={0.2}
+                                      step={0.2}
                                       value={windowLengthInput}
                                       onChange={(e) => setWindowLengthInput(e.target.value)}
                                       onBlur={applyWindowLength}
@@ -1993,7 +2004,7 @@ function CanvasEditor({
                                     <input
                                       type="number"
                                       min={2}
-                                      step={0.5}
+                                      step={0.2}
                                       value={roomWidthInput}
                                       onChange={(e) => setRoomWidthInput(e.target.value)}
                                       onBlur={applyRoomDimensions}
@@ -2006,7 +2017,7 @@ function CanvasEditor({
                                     <input
                                       type="number"
                                       min={2}
-                                      step={0.5}
+                                      step={0.2}
                                       value={roomHeightInput}
                                       onChange={(e) => setRoomHeightInput(e.target.value)}
                                       onBlur={applyRoomDimensions}
@@ -2024,7 +2035,7 @@ function CanvasEditor({
                                     <input
                                       type="number"
                                       min={0.5}
-                                      step={0.1}
+                                      step={0.2}
                                       value={roomWidthInput}
                                       onChange={(e) => setRoomWidthInput(e.target.value)}
                                       onBlur={applyRoomDimensions}
@@ -2037,7 +2048,7 @@ function CanvasEditor({
                                     <input
                                       type="number"
                                       min={0.5}
-                                      step={0.1}
+                                      step={0.2}
                                       value={roomHeightInput}
                                       onChange={(e) => setRoomHeightInput(e.target.value)}
                                       onBlur={applyRoomDimensions}
