@@ -14,9 +14,7 @@ function Toolbar({
   onRedo,
   onSave,
   onToggleGrid,
-  onToggleSnap,
   gridEnabled,
-  snapEnabled,
   onExportJson,
   onExportPng,
 }) {
@@ -50,9 +48,6 @@ function Toolbar({
       <div className="toolbar-group">
         <button type="button" className={gridEnabled ? 'active' : ''} onClick={onToggleGrid}>
           Grid
-        </button>
-        <button type="button" className={snapEnabled ? 'active' : ''} onClick={onToggleSnap}>
-          Snap
         </button>
       </div>
 

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useCanvas } from '../hooks/useCanvas'
 import { useEditorNav } from '../context/EditorNavContext'
 import {
-  Box,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -15,7 +14,6 @@ import {
   Grid3X3,
   Keyboard,
   LayoutGrid,
-  Magnet,
   Minus,
   MousePointer2,
   PanelLeftClose,
@@ -56,6 +54,21 @@ const DEFAULT_LEGEND_COLORS = {
   custom: '#64748b',
 }
 
+/** Real CSS 3D cube for the 3D view toolbar control (not a flat stroke icon). */
+function Toolbar3DBoxIcon() {
+  return (
+    <span className="tool-btn-3d-scene">
+      <span className="tool-btn-3d-cube">
+        <span className="tool-btn-cube-face tool-btn-cube-face--front" />
+        <span className="tool-btn-cube-face tool-btn-cube-face--back" />
+        <span className="tool-btn-cube-face tool-btn-cube-face--right" />
+        <span className="tool-btn-cube-face tool-btn-cube-face--left" />
+        <span className="tool-btn-cube-face tool-btn-cube-face--top" />
+        <span className="tool-btn-cube-face tool-btn-cube-face--bottom" />
+      </span>
+    </span>
+  )
+}
 
 const toRadians = (degrees) => (degrees * Math.PI) / 180
 
@@ -196,7 +209,6 @@ function CanvasEditor({
   const panZoomRef = useRef({ pan: { x: 0, y: 0 }, zoom: 1 })
 
   const [gridEnabled, setGridEnabled] = useState(true)
-  const [snapEnabled, setSnapEnabled] = useState(true)
   const [measurementsVisible, setMeasurementsVisible] = useState(true)
   const [rulersVisible, setRulersVisible] = useState(true)
   const [zoom, setZoom] = useState(1)
@@ -556,9 +568,6 @@ function CanvasEditor({
   }
 
   const toSnap = (point) => {
-    if (!snapEnabled) {
-      return point
-    }
     const step = zoom > ZOOM_FRACTIONAL_THRESHOLD ? SNAP_STEP_FRACTIONAL : GRID_SIZE
     return {
       x: Math.round(point.x / step) * step,
@@ -1568,10 +1577,6 @@ function CanvasEditor({
                 <span className="tool-btn-icon"><Grid3X3 size={16} /></span>
                 Grid
               </button>
-              <button type="button" className={`tool-btn ${snapEnabled ? 'active' : ''}`} onClick={() => setSnapEnabled((c) => !c)} title="Toggle snap">
-                <span className="tool-btn-icon"><Magnet size={16} /></span>
-                Snap
-              </button>
               <button type="button" className={`tool-btn ${measurementsVisible ? 'active' : ''}`} onClick={() => setMeasurementsVisible((c) => !c)} title="Toggle dimension labels">
                 <span className="tool-btn-icon"><Gauge size={16} /></span>
                 Labels
@@ -1587,7 +1592,9 @@ function CanvasEditor({
                   onClick={() => navigate(`/3d/${planId}`)}
                   title="Open 3D view"
                 >
-                  <span className="tool-btn-icon"><Box size={16} /></span>
+                  <span className="tool-btn-icon tool-btn-icon-3d-cube" aria-hidden>
+                    <Toolbar3DBoxIcon />
+                  </span>
                   3D
                 </button>
               )}

@@ -516,6 +516,89 @@
   height: 16px;
 }
 
+/* 3D view toolbar — actual CSS 3D cube (six faces), not a flat icon */
+.tool-btn-icon.tool-btn-icon-3d-cube {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tool-btn-3d-scene {
+  width: 14px;
+  height: 14px;
+  perspective: 56px;
+  perspective-origin: 50% 45%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-btn-3d-cube {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  transform-style: preserve-3d;
+  animation: tool-btn-3d-cube-spin 5.5s linear infinite;
+}
+
+.tool-btn-cube-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, currentColor 48%, transparent);
+  backface-visibility: visible;
+}
+
+.tool-btn-cube-face--front {
+  transform: rotateY(0deg) translateZ(5px);
+  background: color-mix(in srgb, currentColor 26%, transparent);
+}
+
+.tool-btn-cube-face--back {
+  transform: rotateY(180deg) translateZ(5px);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.tool-btn-cube-face--right {
+  transform: rotateY(90deg) translateZ(5px);
+  background: color-mix(in srgb, currentColor 34%, transparent);
+}
+
+.tool-btn-cube-face--left {
+  transform: rotateY(-90deg) translateZ(5px);
+  background: color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.tool-btn-cube-face--top {
+  transform: rotateX(90deg) translateZ(5px);
+  background: color-mix(in srgb, currentColor 14%, #ffffff);
+}
+
+.tool-btn-cube-face--bottom {
+  transform: rotateX(-90deg) translateZ(5px);
+  background: color-mix(in srgb, currentColor 42%, #0f172a);
+}
+
+@keyframes tool-btn-3d-cube-spin {
+  from {
+    transform: rotateX(-22deg) rotateY(0deg);
+  }
+  to {
+    transform: rotateX(-22deg) rotateY(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-btn-3d-cube {
+    animation: none;
+    transform: rotateX(-22deg) rotateY(32deg);
+  }
+}
+
 .tool-mirror-wrap {
   position: relative;
 }
