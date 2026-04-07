@@ -26,6 +26,7 @@ const WINDOW_RECESS_DEPTH = 2
 const FLOOR_SIZE_MULTIPLIER = 1
 const FLOOR_SIZE_MIN = 50
 const FLOOR_SIZE_DEFAULT = 100
+export const FLOOR_LEVEL_HEIGHT = WALL_HEIGHT + FLOOR_THICKNESS
 const ORBIT_MIN_DISTANCE = 2
 const CAMERA_FAR = 3000
 const ORBIT_MAX_DISTANCE = CAMERA_FAR
@@ -935,7 +936,7 @@ function getWallSegmentsWithCutouts(wall, openings) {
   return { solidSegments, fillSegments }
 }
 
-function FloorPlanScene({ objects, colors, center, floorSize, cameraRef }) {
+function FloorPlanScene({ objects, colors, center, floorSize, cameraRef, floorCount = 1 }) {
   const doorColor = DEFAULT_DOOR_COLOR
   const windowColor = DEFAULT_WINDOW_COLOR
 
@@ -990,40 +991,90 @@ function FloorPlanScene({ objects, colors, center, floorSize, cameraRef }) {
     return applyWallJunctionSnapping(all, WALL_THICKNESS)
   }, [roomWallSegmentsWithCutouts, standaloneWallSegmentsWithCutouts])
 
+  const upperFloorSlab = useMemo(() => {
+    if (!allWallSegmentsSnapped.length) {
+      return null
+    }
+
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+
+    allWallSegmentsSnapped.forEach((seg) => {
+      const angle = toRadians(seg.rotation)
+      const x2 = seg.x + Math.cos(angle) * seg.width
+      const y2 = seg.y + Math.sin(angle) * seg.width
+      minX = Math.min(minX, seg.x, x2)
+      minY = Math.min(minY, seg.y, y2)
+      maxX = Math.max(maxX, seg.x, x2)
+      maxY = Math.max(maxY, seg.y, y2)
+    })
+
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+    return {
+      x: centerX,
+      z: -centerY,
+      width: Math.max(maxX - minX + WALL_THICKNESS, WALL_THICKNESS),
+      depth: Math.max(maxY - minY + WALL_THICKNESS, WALL_THICKNESS),
+    }
+  }, [allWallSegmentsSnapped])
+
+  const safeFloorCount = Math.max(1, Math.floor(Number(floorCount) || 1))
+
   return (
     <>
       <ambientLight intensity={0.6} />
       <directionalLight position={[20, 30, 20]} intensity={0.8} castShadow />
       <directionalLight position={[-20, 20, -20]} intensity={0.3} />
-      <group scale={[1, 1, -1]}>
-        {/* Floor slab – thickness downward, top at y=0 */}
-        <mesh position={[target[0], -FLOOR_THICKNESS / 2, -target[2]]} castShadow receiveShadow>
-          <boxGeometry args={[floorExtent, FLOOR_THICKNESS, floorExtent]} />
-          <meshStandardMaterial color={FLOOR_COLOR} />
-        </mesh>
+      {Array.from({ length: safeFloorCount }, (_, floorIndex) => (
+        <group key={`floor-${floorIndex}`} position={[0, floorIndex * FLOOR_LEVEL_HEIGHT, 0]}>
+          <group scale={[1, 1, -1]}>
+            {/* Floor slab – thickness downward, top at y=0 */}
+            <mesh
+              position={[
+                floorIndex === 0 || !upperFloorSlab ? target[0] : upperFloorSlab.x,
+                -FLOOR_THICKNESS / 2,
+                floorIndex === 0 || !upperFloorSlab ? -target[2] : upperFloorSlab.z,
+              ]}
+              castShadow
+              receiveShadow
+            >
+              <boxGeometry
+                args={[
+                  floorIndex === 0 || !upperFloorSlab ? floorExtent : upperFloorSlab.width,
+                  FLOOR_THICKNESS,
+                  floorIndex === 0 || !upperFloorSlab ? floorExtent : upperFloorSlab.depth,
+                ]}
+              />
+              <meshStandardMaterial color={FLOOR_COLOR} />
+            </mesh>
 
-        {/* All walls (room + standalone, with cutouts and junction snapping) */}
-        {allWallSegmentsSnapped.map((seg) => (
-          <WallMesh key={seg.key} object={seg} color={WALL_FACE_COLOR} />
-        ))}
+            {/* All walls (room + standalone, with cutouts and junction snapping) */}
+            {allWallSegmentsSnapped.map((seg) => (
+              <WallMesh key={`${seg.key}-f${floorIndex}`} object={seg} color={WALL_FACE_COLOR} />
+            ))}
 
-        {visible.map((obj) => {
-          if (obj.type === 'wall') {
-            return null
-          }
-          if (obj.type === 'door') {
-            return <DoorMesh key={obj.id} object={obj} color={doorColor} />
-          }
-          if (obj.type === 'window') {
-            return <WindowMesh key={obj.id} object={obj} color={windowColor} />
-          }
-          if (obj.type === 'custom') {
-            return <CustomMesh key={obj.id} object={obj} />
-          }
-          /* rooms: walls already rendered from room edges above */
-          return null
-        })}
-      </group>
+            {visible.map((obj) => {
+              if (obj.type === 'wall') {
+                return null
+              }
+              if (obj.type === 'door') {
+                return <DoorMesh key={`${obj.id}-f${floorIndex}`} object={obj} color={doorColor} />
+              }
+              if (obj.type === 'window') {
+                return <WindowMesh key={`${obj.id}-f${floorIndex}`} object={obj} color={windowColor} />
+              }
+              if (obj.type === 'custom') {
+                return <CustomMesh key={`${obj.id}-f${floorIndex}`} object={obj} />
+              }
+              /* rooms: walls already rendered from room edges above */
+              return null
+            })}
+          </group>
+        </group>
+      ))}
 
       {cameraRef && <CameraSync cameraRef={cameraRef} />}
       <OrbitControls

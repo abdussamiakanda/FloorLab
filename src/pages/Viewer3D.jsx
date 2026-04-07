@@ -4,7 +4,7 @@ import { Vector3 } from 'three'
 import { Canvas } from '@react-three/fiber'
 import { useFirestore } from '../hooks/useFirestore'
 import { useEditorNav } from '../context/EditorNavContext'
-import { getPlanBounds, CornerAxesScene, CAMERA_FAR } from '../components/Scene3D'
+import { getPlanBounds, CornerAxesScene, CAMERA_FAR, FLOOR_LEVEL_HEIGHT } from '../components/Scene3D'
 import Scene3D from '../components/Scene3D'
 
 function Viewer3D() {
@@ -15,6 +15,7 @@ function Viewer3D() {
   const [plan, setPlan] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [floorCount, setFloorCount] = useState(1)
 
   useEffect(() => {
     if (!planId) return
@@ -38,14 +39,19 @@ function Viewer3D() {
   const objects = plan?.objects ?? []
   const colors = plan?.colors ?? {}
   const bounds = useMemo(() => getPlanBounds(objects), [objects])
+  const stackedCenterY = useMemo(
+    () => ((Math.max(1, floorCount) - 1) * FLOOR_LEVEL_HEIGHT) / 2,
+    [floorCount],
+  )
   const cameraPosition = useMemo(() => {
     const [cx, , cz] = bounds.center
-    const dist = Math.max(bounds.size * 1.2, 80)
-    return [cx + dist * 0.6, dist * 0.8, -cz + dist * 0.6]
-  }, [bounds])
+    const verticalSpan = Math.max((Math.max(1, floorCount) - 1) * FLOOR_LEVEL_HEIGHT, 0)
+    const dist = Math.max(bounds.size * 1.2, verticalSpan * 1.2, 80)
+    return [cx + dist * 0.6, stackedCenterY + dist * 0.8, -cz + dist * 0.6]
+  }, [bounds, floorCount, stackedCenterY])
   const sceneCenter = useMemo(
-    () => [bounds.center[0], bounds.center[1], -bounds.center[2]],
-    [bounds.center],
+    () => [bounds.center[0], stackedCenterY, -bounds.center[2]],
+    [bounds.center, stackedCenterY],
   )
   const cameraRef = useRef(new Vector3())
 
@@ -92,6 +98,31 @@ function Viewer3D() {
   return (
     <section className="viewer-3d-page">
       <div className="viewer-3d-canvas-wrap">
+        <div className="viewer-3d-controls">
+          <div className="viewer-3d-floors-control" role="group" aria-label="Floors">
+            <button
+              type="button"
+              className="viewer-3d-floors-btn"
+              onClick={() => setFloorCount((count) => Math.max(1, count - 1))}
+              disabled={floorCount <= 1}
+              aria-label="Decrease floors"
+              title="Decrease floors"
+            >
+              -
+            </button>
+            <span className="viewer-3d-floors-count" aria-live="polite">{floorCount}</span>
+            <button
+              type="button"
+              className="viewer-3d-floors-btn"
+              onClick={() => setFloorCount((count) => Math.min(20, count + 1))}
+              disabled={floorCount >= 20}
+              aria-label="Increase floors"
+              title="Increase floors"
+            >
+              +
+            </button>
+          </div>
+        </div>
         <Canvas
           style={{ width: '100%', height: '100%', display: 'block' }}
           camera={{
@@ -108,6 +139,7 @@ function Viewer3D() {
             center={sceneCenter}
             floorSize={bounds.size}
             cameraRef={cameraRef}
+            floorCount={floorCount}
           />
         </Canvas>
         <div className="viewer-3d-axes-corner" aria-hidden>
