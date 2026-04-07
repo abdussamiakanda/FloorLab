@@ -751,6 +751,21 @@ function CanvasEditor({
             context.fillRect(-w0 / 2, -h0 / 2, w0, h0)
             context.fillStyle = '#111827'
             context.fillText(measurement, 0, 0)
+            const nameText = (object.name || '').trim()
+            if (nameText) {
+              const nameFont = 10 / zoom
+              context.font = `${nameFont}px Arial`
+              const mn = context.measureText(nameText)
+              const pdn = 3 / zoom
+              const wn = mn.width + 2 * pdn
+              const hn = nameFont + 2 * pdn
+              const stackDy = h0 / 2 + hn / 2 + 2 / zoom
+              context.translate(0, stackDy)
+              context.fillStyle = '#ffffff'
+              context.fillRect(-wn / 2, -hn / 2, wn, hn)
+              context.fillStyle = '#334155'
+              context.fillText(nameText, 0, 0)
+            }
             context.restore()
           }
         }
@@ -822,6 +837,21 @@ function CanvasEditor({
             context.fillRect(-w1 / 2, -h1 / 2, w1, h1)
             context.fillStyle = '#15803d'
             context.fillText(measurement, 0, 0)
+            const nameText = (object.name || '').trim()
+            if (nameText) {
+              const nameFont = 10 / zoom
+              context.font = `${nameFont}px Arial`
+              const mn = context.measureText(nameText)
+              const pdn = 3 / zoom
+              const wn = mn.width + 2 * pdn
+              const hn = nameFont + 2 * pdn
+              const stackDy = h1 / 2 + hn / 2 + 2 / zoom
+              context.translate(0, stackDy)
+              context.fillStyle = '#ffffff'
+              context.fillRect(-wn / 2, -hn / 2, wn, hn)
+              context.fillStyle = '#334155'
+              context.fillText(nameText, 0, 0)
+            }
             context.restore()
           }
         }
@@ -900,6 +930,21 @@ function CanvasEditor({
             context.fillRect(-w2 / 2, -h2 / 2, w2, h2)
             context.fillStyle = '#6d28d9'
             context.fillText(measurement, 0, 0)
+            const nameText = (object.name || '').trim()
+            if (nameText) {
+              const nameFont = 10 / zoom
+              context.font = `${nameFont}px Arial`
+              const mn = context.measureText(nameText)
+              const pdn = 3 / zoom
+              const wn = mn.width + 2 * pdn
+              const hn = nameFont + 2 * pdn
+              const stackDy = h2 / 2 + hn / 2 + 2 / zoom
+              context.translate(0, stackDy)
+              context.fillStyle = '#ffffff'
+              context.fillRect(-wn / 2, -hn / 2, wn, hn)
+              context.fillStyle = '#334155'
+              context.fillText(nameText, 0, 0)
+            }
             context.restore()
           }
         }
@@ -932,6 +977,20 @@ function CanvasEditor({
             context.fillRect(cx - w3 / 2, cy - h3 / 2, w3, h3)
             context.fillStyle = legendColors.room
             context.fillText(measurement, cx, cy)
+            const nameText = (object.name || '').trim()
+            if (nameText) {
+              const nameFont = 10 / zoom
+              context.font = `${nameFont}px Arial`
+              const mn = context.measureText(nameText)
+              const padn = 3 / zoom
+              const wn = mn.width + 2 * padn
+              const hn = nameFont + 2 * padn
+              const ny = cy + h3 / 2 + hn / 2 + 2 / zoom
+              context.fillStyle = '#ffffff'
+              context.fillRect(cx - wn / 2, ny - hn / 2, wn, hn)
+              context.fillStyle = '#334155'
+              context.fillText(nameText, cx, ny)
+            }
           }
           context.restore()
         } else if (object.type === 'custom') {
@@ -943,12 +1002,16 @@ function CanvasEditor({
           context.strokeStyle = isSelected ? '#f97316' : legendColors.custom
           context.lineWidth = 2 / zoom
           context.strokeRect(0, 0, object.width, object.height)
-          const label = CUSTOM_TYPES.find((t) => t.id === object.customType)?.label || object.customType || 'Custom'
-          context.font = `${Math.max(10, 12 / zoom)}px Arial`
-          context.textAlign = 'center'
-          context.textBaseline = 'middle'
-          context.fillStyle = isSelected ? '#f97316' : '#475569'
-          context.fillText(label, object.width / 2, object.height / 2)
+          if (measurementsVisible) {
+            const nameText = (object.name || '').trim()
+            const typeLabel = CUSTOM_TYPES.find((t) => t.id === object.customType)?.label || object.customType || 'Custom'
+            const text = nameText || typeLabel
+            context.font = `${Math.max(10, 12 / zoom)}px Arial`
+            context.textAlign = 'center'
+            context.textBaseline = 'middle'
+            context.fillStyle = isSelected ? '#f97316' : '#475569'
+            context.fillText(text, object.width / 2, object.height / 2)
+          }
           context.restore()
         }
       })
@@ -1577,7 +1640,7 @@ function CanvasEditor({
                 <span className="tool-btn-icon"><Grid3X3 size={16} /></span>
                 Grid
               </button>
-              <button type="button" className={`tool-btn ${measurementsVisible ? 'active' : ''}`} onClick={() => setMeasurementsVisible((c) => !c)} title="Toggle dimension labels">
+              <button type="button" className={`tool-btn ${measurementsVisible ? 'active' : ''}`} onClick={() => setMeasurementsVisible((c) => !c)} title="Toggle dimension labels and object names on canvas">
                 <span className="tool-btn-icon"><Gauge size={16} /></span>
                 Labels
               </button>
